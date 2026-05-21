@@ -1,6 +1,6 @@
 "use client";
 
-import { Users, Store, CreditCard, ShoppingBag } from "lucide-react";
+import { Users, Store, CreditCard, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -18,8 +18,26 @@ type StoreRow = {
   createdAt: string;
 };
 
+type AiUsageStore = {
+  storeId: string;
+  storeName: string;
+  translationCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+};
+
+type AiUsage = {
+  translationCount: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCostUsd: number;
+  byStore: AiUsageStore[];
+};
+
 type Props = {
   stats: { userCount: number; storeCount: number; activeSubscriptions: number };
+  aiUsage: AiUsage;
   stores: StoreRow[];
   locale: string;
 };
@@ -33,7 +51,7 @@ const STATUS_COLORS: Record<string, string> = {
   NONE: "#6B7280",
 };
 
-export function SuperAdminDashboard({ stats, stores, locale }: Props) {
+export function SuperAdminDashboard({ stats, aiUsage, stores, locale }: Props) {
   const router = useRouter();
 
   async function handleLogout() {
@@ -88,6 +106,65 @@ export function SuperAdminDashboard({ stats, stores, locale }: Props) {
               <p className="text-xs text-text-muted mt-0.5">{s.label}</p>
             </div>
           ))}
+        </div>
+
+        {/* AI Usage */}
+        <div className="rounded-2xl border mb-8 overflow-hidden" style={{ background: "white", borderColor: "var(--cream-dark)" }}>
+          <div className="px-5 py-4 border-b flex items-center gap-2" style={{ borderColor: "var(--cream-dark)" }}>
+            <Sparkles size={16} style={{ color: "var(--orange)" }} />
+            <h2 className="font-bold text-text-dark">Uso de IA — mês atual</h2>
+          </div>
+          <div className="p-5">
+            <div className="grid grid-cols-3 gap-4 mb-5">
+              <div className="rounded-xl p-4" style={{ background: "var(--cream)" }}>
+                <p className="text-2xl font-black text-text-dark">{aiUsage.translationCount}</p>
+                <p className="text-xs text-text-muted mt-0.5">Traduções</p>
+              </div>
+              <div className="rounded-xl p-4" style={{ background: "var(--cream)" }}>
+                <p className="text-2xl font-black text-text-dark">
+                  {(aiUsage.totalInputTokens + aiUsage.totalOutputTokens).toLocaleString("pt-BR")}
+                </p>
+                <p className="text-xs text-text-muted mt-0.5">Tokens totais</p>
+              </div>
+              <div className="rounded-xl p-4" style={{ background: aiUsage.totalCostUsd > 3 ? "#FEF2F2" : "var(--cream)" }}>
+                <p className="text-2xl font-black" style={{ color: aiUsage.totalCostUsd > 3 ? "#EF4444" : "var(--text-dark)" }}>
+                  ${aiUsage.totalCostUsd.toFixed(4)}
+                </p>
+                <p className="text-xs text-text-muted mt-0.5">Custo estimado (USD)</p>
+              </div>
+            </div>
+
+            {aiUsage.byStore.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--cream-dark)" }}>
+                      {["Loja", "Traduções", "Tokens entrada", "Tokens saída", "Custo (USD)"].map((h) => (
+                        <th key={h} className="pb-2 text-left text-xs font-semibold text-text-muted uppercase tracking-wide pr-4">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {aiUsage.byStore.map((row) => (
+                      <tr key={row.storeId} className="border-b" style={{ borderColor: "var(--cream-dark)" }}>
+                        <td className="py-2.5 pr-4 font-medium text-text-dark">{row.storeName}</td>
+                        <td className="py-2.5 pr-4 text-text-muted">{row.translationCount}</td>
+                        <td className="py-2.5 pr-4 text-text-muted">{row.inputTokens.toLocaleString("pt-BR")}</td>
+                        <td className="py-2.5 pr-4 text-text-muted">{row.outputTokens.toLocaleString("pt-BR")}</td>
+                        <td className="py-2.5 font-mono text-xs text-text-dark">${row.costUsd.toFixed(4)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {aiUsage.byStore.length === 0 && (
+              <p className="text-sm text-text-muted text-center py-4">Nenhuma tradução realizada neste mês.</p>
+            )}
+          </div>
         </div>
 
         {/* Stores table */}
