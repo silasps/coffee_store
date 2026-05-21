@@ -105,7 +105,6 @@ export function AdminShell({ children, storeId, storeName, locale, userName }: P
         <div className="p-3 border-t" style={{ borderColor: "var(--brown-mid)" }}>
           <Link
             href={`/${locale}/${storeId}`}
-            target="_blank"
             className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-cream/60 hover:text-cream hover:bg-white/10 transition-all mb-1"
           >
             <Store size={18} />
