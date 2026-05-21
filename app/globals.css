@@ -1,26 +1,68 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* JOCUM AT Brand Colors */
+  --brown-dark: #3A1A00;
+  --brown-mid: #6B3A1F;
+  --brown-light: #9B6B4F;
+  --orange: #E86A1A;
+  --orange-light: #F28C3A;
+  --orange-dark: #C4540E;
+  --cream: #FDF6EE;
+  --cream-dark: #F5E8D8;
+  --text-dark: #1A0A00;
+  --text-muted: #8B6A55;
+  --white: #FFFFFF;
+
+  --background: var(--cream);
+  --foreground: var(--text-dark);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+
+  /* Brand palette exposed as Tailwind utilities */
+  --color-brown-dark: var(--brown-dark);
+  --color-brown-mid: var(--brown-mid);
+  --color-brown-light: var(--brown-light);
+  --color-orange: var(--orange);
+  --color-orange-light: var(--orange-light);
+  --color-orange-dark: var(--orange-dark);
+  --color-cream: var(--cream);
+  --color-cream-dark: var(--cream-dark);
+  --color-text-dark: var(--text-dark);
+  --color-text-muted: var(--text-muted);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--brown-light);
+  border-radius: 2px;
+}
+
+/* Hide scrollbar on category sidebar on mobile */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

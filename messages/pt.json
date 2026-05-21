@@ -1,0 +1,101 @@
+{
+  "nav": {
+    "cart": "Carrinho",
+    "search": "Pesquisar produtos...",
+    "cause": "Nossa Causa"
+  },
+  "menu": {
+    "popular": "Mais Pedidos",
+    "suggested": "Sugestão da Casa",
+    "combos": "Combos",
+    "new": "Novidades",
+    "all": "Todos",
+    "foods": "Comes",
+    "hot_drinks": "Cafés Quentes",
+    "cold_drinks": "Gelados",
+    "add": "Adicionar",
+    "added": "Adicionado",
+    "outOfStock": "Indisponível",
+    "prep": "{min} min",
+    "search": "Pesquisar produtos...",
+    "empty": "Nenhum produto encontrado"
+  },
+  "cart": {
+    "title": "Meu Pedido",
+    "empty": "Seu carrinho está vazio",
+    "emptyDesc": "Adicione itens do menu para começar",
+    "notes": "Observações (sem cebola, mais gelado...)",
+    "notesPlaceholder": "Ex: sem açúcar, bem quente...",
+    "remove": "Remover",
+    "subtotal": "Subtotal",
+    "total": "Total",
+    "checkout": "Finalizar Pedido",
+    "items": "{count, plural, one {# item} other {# itens}}"
+  },
+  "checkout": {
+    "title": "Finalizar Pedido",
+    "name": "Seu nome",
+    "namePlaceholder": "Como te chamamos?",
+    "table": "Mesa / Local (opcional)",
+    "tablePlaceholder": "Ex: Mesa 5, Balcão",
+    "notes": "Observação geral do pedido",
+    "notesPlaceholder": "Alguma obs geral?",
+    "payment": "Como vai pagar?",
+    "pix": "PIX",
+    "pixDesc": "Escanear QR Code",
+    "card": "Cartão Online",
+    "cardDesc": "Pagar agora",
+    "payLink": "Link de Pagamento",
+    "payLinkDesc": "Receba no WhatsApp/Email",
+    "counter": "Pagar no Balcão",
+    "counterDesc": "Dinheiro, cartão ou PIX",
+    "place": "Fazer Pedido",
+    "back": "Voltar",
+    "required": "Campo obrigatório"
+  },
+  "order": {
+    "title": "Pedido #{code}",
+    "awaiting": "Aguardando Pagamento",
+    "inQueue": "Na Fila",
+    "preparing": "Em Preparo",
+    "ready": "Pronto! Retire no balcão",
+    "completed": "Entregue",
+    "cancelled": "Cancelado",
+    "payPix": "Pague via PIX",
+    "pixCopied": "Código PIX copiado!",
+    "copyPix": "Copiar código PIX",
+    "qrCode": "QR Code PIX"
+  },
+  "cause": {
+    "title": "Nosso Café tem Propósito",
+    "subtitle": "De Tamandaré para as nações",
+    "body": "Ao tomar um café aqui, você está investindo em pessoas que desejam viver o chamado missionário. O lucro do Café AT é destinado a missões, apoiando alunos das nossas ETEDs e na formação missionária.",
+    "donate": "Quer ir além?",
+    "donateDesc": "Faça uma doação via PIX",
+    "close": "Fechar"
+  },
+  "auth": {
+    "login": "Entrar",
+    "logout": "Sair",
+    "email": "E-mail",
+    "password": "Senha",
+    "forgotPassword": "Esqueci a senha",
+    "noAccount": "Não tem conta?",
+    "createAccount": "Criar conta",
+    "loginTitle": "Acesse sua conta"
+  },
+  "admin": {
+    "dashboard": "Dashboard",
+    "products": "Produtos",
+    "categories": "Categorias",
+    "orders": "Pedidos",
+    "finance": "Financeiro",
+    "import": "Importar",
+    "settings": "Configurações",
+    "team": "Equipe",
+    "stores": "Minhas Lojas",
+    "newStore": "Nova Loja",
+    "users": "Usuários",
+    "subscriptions": "Assinaturas"
+  }
+}

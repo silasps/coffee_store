@@ -1,0 +1,375 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── ENUMS ───────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  STORE_OWNER
+  STORE_ADMIN
+  SELLER
+}
+
+enum StoreTeamRole {
+  ADMIN
+  SELLER
+}
+
+enum PlanStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  PAUSED
+}
+
+enum ProductArea {
+  FOODS
+  HOT_DRINKS
+  COLD_DRINKS
+}
+
+enum ProductTag {
+  POPULAR
+  SUGGESTED
+  NEW
+  COMBO
+  FEATURED
+}
+
+enum OrderChannel {
+  TOTEM
+  TABLE
+  COUNTER
+}
+
+enum OrderStatus {
+  AWAITING_PAYMENT
+  IN_QUEUE
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  PIX
+  CARD_ONLINE
+  PAY_LINK
+  PAY_AT_COUNTER
+  CASH_AT_COUNTER
+  CARD_AT_COUNTER
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum FinanceDirection {
+  INCOME
+  EXPENSE
+}
+
+enum FinanceCategory {
+  SALE
+  SUPPLY_PURCHASE
+  OPERATIONS
+  RENT
+  PAYROLL
+  TAXES
+  UTILITIES
+  MARKETING
+  MAINTENANCE
+  EQUIPMENT
+  OTHER
+}
+
+// ─── PLATFORM ────────────────────────────────
+
+model User {
+  id        String   @id @default(cuid())
+  authId    String   @unique
+  email     String   @unique
+  name      String?
+  avatarUrl String?
+  role      UserRole @default(STORE_OWNER)
+
+  stores          Store[]
+  teamMemberships StoreTeamMember[]
+  subscription    Subscription?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Plan {
+  id           String  @id @default(cuid())
+  name         String
+  maxStores    Int
+  priceMonthly Decimal @db.Decimal(10, 2)
+  mpPlanId     String?
+  isActive     Boolean @default(true)
+  sortOrder    Int     @default(0)
+
+  subscriptions Subscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("plans")
+}
+
+model Subscription {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  planId           String
+  status           PlanStatus @default(TRIALING)
+  mpSubscriptionId String?
+  trialUntil       DateTime?
+  currentPeriodEnd DateTime?
+  cancelledAt      DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("subscriptions")
+}
+
+// ─── STORE ───────────────────────────────────
+
+model Store {
+  id      String @id @default(cuid())
+  ownerId String
+  slug    String @unique
+
+  namePt   String
+  nameEn   String?
+  nameEs   String?
+  sloganPt String?
+  sloganEn String?
+  sloganEs String?
+  logoUrl  String?
+
+  primaryColor  String? @default("#3A1A00")
+  accentColor   String? @default("#E86A1A")
+  defaultLocale String  @default("pt")
+  isActive      Boolean @default(true)
+
+  causeTitlePt     String?
+  causeTitleEn     String?
+  causeTextPt      String?
+  causeTextEn      String?
+  causeDonationPix String?
+  causePaypalUrl   String?
+
+  owner      User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  team       StoreTeamMember[]
+  categories Category[]
+  products   Product[]
+  orders     Order[]
+  finance    FinanceEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId, isActive])
+  @@map("stores")
+}
+
+model StoreTeamMember {
+  id      String        @id @default(cuid())
+  storeId String
+  userId  String
+  role    StoreTeamRole
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([storeId, userId])
+  @@map("store_team_members")
+}
+
+// ─── CATALOG ─────────────────────────────────
+
+model Category {
+  id      String @id @default(cuid())
+  storeId String
+
+  slug        String
+  namePt      String
+  nameEn      String?
+  nameEs      String?
+  area        ProductArea @default(HOT_DRINKS)
+  iconEmoji   String?
+  accentColor String?
+  sortOrder   Int         @default(0)
+  isActive    Boolean     @default(true)
+
+  store    Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeId, slug])
+  @@index([storeId, area, sortOrder])
+  @@map("categories")
+}
+
+model Product {
+  id         String @id @default(cuid())
+  storeId    String
+  categoryId String
+
+  slug          String
+  sku           String?
+  namePt        String
+  nameEn        String?
+  nameEs        String?
+  descriptionPt String?
+  descriptionEn String?
+  descriptionEs String?
+  highlightPt   String?
+  highlightEn   String?
+  highlightEs   String?
+  imageUrl      String?
+
+  basePrice     Decimal?   @db.Decimal(10, 2)
+  stockQuantity Int?
+  prepMinutes   Int?
+  tags          ProductTag[]
+  isAvailable   Boolean    @default(true)
+  sortOrder     Int        @default(0)
+
+  store     Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category  Category          @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  modifiers ProductModifier[]
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeId, slug])
+  @@index([storeId, categoryId, sortOrder])
+  @@index([storeId, isAvailable])
+  @@map("products")
+}
+
+model ProductModifier {
+  id        String @id @default(cuid())
+  productId String
+
+  labelPt    String
+  labelEn    String?
+  labelEs    String?
+  isRequired Boolean @default(false)
+  options    Json
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("product_modifiers")
+}
+
+// ─── ORDERS ──────────────────────────────────
+
+model Order {
+  id      String @id @default(cuid())
+  storeId String
+
+  displayCode  String  @unique
+  customerName String
+  tableLabel   String?
+  notes        String?
+
+  channel       OrderChannel
+  status        OrderStatus   @default(AWAITING_PAYMENT)
+  paymentMethod PaymentMethod
+  paymentStatus PaymentStatus @default(PENDING)
+  mpPaymentId   String?
+
+  subtotal Decimal @db.Decimal(10, 2)
+  total    Decimal @db.Decimal(10, 2)
+
+  paidAt      DateTime?
+  readyAt     DateTime?
+  completedAt DateTime?
+
+  store   Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  items   OrderItem[]
+  finance FinanceEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([storeId, status, createdAt])
+  @@index([storeId, paymentStatus, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id      String @id @default(cuid())
+  orderId String
+
+  productId     String?
+  productSlug   String
+  productNamePt String
+  quantity      Int
+  unitPrice     Decimal? @db.Decimal(10, 2)
+  totalPrice    Decimal? @db.Decimal(10, 2)
+  notes         String?
+  modifiers     Json?
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// ─── FINANCE ─────────────────────────────────
+
+model FinanceEntry {
+  id      String  @id @default(cuid())
+  storeId String
+  orderId String?
+
+  direction   FinanceDirection
+  category    FinanceCategory
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  happenedAt  DateTime @default(now())
+  notes       String?
+
+  store Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([storeId, direction, happenedAt])
+  @@index([storeId, category, happenedAt])
+  @@map("finance_entries")
+}

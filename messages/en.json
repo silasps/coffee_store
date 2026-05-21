@@ -1,0 +1,101 @@
+{
+  "nav": {
+    "cart": "Cart",
+    "search": "Search products...",
+    "cause": "Our Cause"
+  },
+  "menu": {
+    "popular": "Most Popular",
+    "suggested": "House Picks",
+    "combos": "Combos",
+    "new": "New",
+    "all": "All",
+    "foods": "Food",
+    "hot_drinks": "Hot Drinks",
+    "cold_drinks": "Cold Drinks",
+    "add": "Add",
+    "added": "Added",
+    "outOfStock": "Unavailable",
+    "prep": "{min} min",
+    "search": "Search products...",
+    "empty": "No products found"
+  },
+  "cart": {
+    "title": "My Order",
+    "empty": "Your cart is empty",
+    "emptyDesc": "Add items from the menu to get started",
+    "notes": "Notes (no onion, extra cold...)",
+    "notesPlaceholder": "E.g.: no sugar, extra hot...",
+    "remove": "Remove",
+    "subtotal": "Subtotal",
+    "total": "Total",
+    "checkout": "Place Order",
+    "items": "{count, plural, one {# item} other {# items}}"
+  },
+  "checkout": {
+    "title": "Place Order",
+    "name": "Your name",
+    "namePlaceholder": "What should we call you?",
+    "table": "Table / Location (optional)",
+    "tablePlaceholder": "E.g.: Table 5, Counter",
+    "notes": "General order note",
+    "notesPlaceholder": "Any general notes?",
+    "payment": "How will you pay?",
+    "pix": "PIX",
+    "pixDesc": "Scan QR Code",
+    "card": "Online Card",
+    "cardDesc": "Pay now",
+    "payLink": "Payment Link",
+    "payLinkDesc": "Receive on WhatsApp/Email",
+    "counter": "Pay at Counter",
+    "counterDesc": "Cash, card or PIX",
+    "place": "Place Order",
+    "back": "Back",
+    "required": "Required field"
+  },
+  "order": {
+    "title": "Order #{code}",
+    "awaiting": "Awaiting Payment",
+    "inQueue": "In Queue",
+    "preparing": "Being Prepared",
+    "ready": "Ready! Pick up at the counter",
+    "completed": "Delivered",
+    "cancelled": "Cancelled",
+    "payPix": "Pay via PIX",
+    "pixCopied": "PIX code copied!",
+    "copyPix": "Copy PIX code",
+    "qrCode": "PIX QR Code"
+  },
+  "cause": {
+    "title": "Our Coffee has a Purpose!",
+    "subtitle": "From Tamandaré to the nations",
+    "body": "When you have a coffee here, you are investing in people who are pursuing their missionary calling. All profits go to missions, supporting students in our DTS programs and missionaries.",
+    "donate": "Want to do more?",
+    "donateDesc": "You can send a donation via PayPal",
+    "close": "Close"
+  },
+  "auth": {
+    "login": "Sign In",
+    "logout": "Sign Out",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot password",
+    "noAccount": "Don't have an account?",
+    "createAccount": "Create account",
+    "loginTitle": "Access your account"
+  },
+  "admin": {
+    "dashboard": "Dashboard",
+    "products": "Products",
+    "categories": "Categories",
+    "orders": "Orders",
+    "finance": "Finance",
+    "import": "Import",
+    "settings": "Settings",
+    "team": "Team",
+    "stores": "My Stores",
+    "newStore": "New Store",
+    "users": "Users",
+    "subscriptions": "Subscriptions"
+  }
+}
