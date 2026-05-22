@@ -175,14 +175,14 @@ export function StoreListClient({ stores, locale, isSuperAdmin, userName }: Prop
                     <Settings size={14} />
                     Gerenciar
                   </Link>
-                  <a
+                  <Link
                     href={`/${locale}/${store.slug}`}
                     target="_blank"
                     className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition-colors hover:bg-cream-dark"
                     style={{ borderColor: "var(--cream-dark)", color: "var(--text-muted)" }}
                   >
                     <ExternalLink size={14} />
-                  </a>
+                  </Link>
                 </div>
               </div>
             ))}
