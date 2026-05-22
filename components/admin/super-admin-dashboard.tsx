@@ -1,9 +1,10 @@
 "use client";
 
-import { Users, Store, CreditCard, Sparkles } from "lucide-react";
+import { Users, Store, CreditCard, Sparkles, AlertTriangle, X } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 type StoreRow = {
   id: string;
@@ -35,11 +36,26 @@ type AiUsage = {
   byStore: AiUsageStore[];
 };
 
+type SystemAlert = {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  createdAt: string;
+};
+
+type AnthropicAccount = {
+  planName: string;
+  monthlyLimitUsd: number;
+};
+
 type Props = {
   stats: { userCount: number; storeCount: number; activeSubscriptions: number };
   aiUsage: AiUsage;
+  anthropicAccount: AnthropicAccount;
   stores: StoreRow[];
   locale: string;
+  systemAlerts: SystemAlert[];
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -51,8 +67,14 @@ const STATUS_COLORS: Record<string, string> = {
   NONE: "#6B7280",
 };
 
-export function SuperAdminDashboard({ stats, aiUsage, stores, locale }: Props) {
+export function SuperAdminDashboard({ stats, aiUsage, anthropicAccount, stores, locale, systemAlerts }: Props) {
   const router = useRouter();
+  const [alerts, setAlerts] = useState<SystemAlert[]>(systemAlerts);
+
+  async function dismissAlert(id: string) {
+    await fetch(`/api/super-admin/alerts/${id}/read`, { method: "PATCH" });
+    setAlerts((prev) => prev.filter((a) => a.id !== id));
+  }
 
   async function handleLogout() {
     const supabase = createClient();
@@ -88,6 +110,32 @@ export function SuperAdminDashboard({ stats, aiUsage, stores, locale }: Props) {
         </div>
       </header>
 
+      {alerts.length > 0 && (
+        <div className="border-b" style={{ borderColor: "#FCA5A5", background: "#FEF2F2" }}>
+          <div className="max-w-6xl mx-auto px-6 py-3 space-y-2">
+            {alerts.map((alert) => (
+              <div key={alert.id} className="flex items-start gap-3">
+                <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" style={{ color: "#DC2626" }} />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-semibold" style={{ color: "#991B1B" }}>{alert.title}: </span>
+                  <span className="text-sm" style={{ color: "#B91C1C" }}>{alert.message}</span>
+                  <span className="text-xs ml-2" style={{ color: "#DC2626", opacity: 0.6 }}>
+                    {new Date(alert.createdAt).toLocaleString("pt-BR")}
+                  </span>
+                </div>
+                <button
+                  onClick={() => dismissAlert(alert.id)}
+                  className="flex-shrink-0 p-1 rounded hover:bg-red-100 transition-colors"
+                  title="Marcar como lido"
+                >
+                  <X size={14} style={{ color: "#DC2626" }} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto px-6 py-8">
         <h1 className="text-2xl font-bold text-text-dark mb-6">Dashboard da Plataforma</h1>
 
@@ -110,11 +158,58 @@ export function SuperAdminDashboard({ stats, aiUsage, stores, locale }: Props) {
 
         {/* AI Usage */}
         <div className="rounded-2xl border mb-8 overflow-hidden" style={{ background: "white", borderColor: "var(--cream-dark)" }}>
-          <div className="px-5 py-4 border-b flex items-center gap-2" style={{ borderColor: "var(--cream-dark)" }}>
-            <Sparkles size={16} style={{ color: "var(--orange)" }} />
-            <h2 className="font-bold text-text-dark">Uso de IA — mês atual</h2>
+          <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: "var(--cream-dark)" }}>
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} style={{ color: "var(--orange)" }} />
+              <h2 className="font-bold text-text-dark">Uso de IA — mês atual</h2>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
+              Anthropic · {anthropicAccount.planName}
+            </span>
           </div>
           <div className="p-5">
+            {/* Account limit bar */}
+            {(() => {
+              const used = aiUsage.totalCostUsd;
+              const limit = anthropicAccount.monthlyLimitUsd;
+              const pct = Math.min((used / limit) * 100, 100);
+              const remaining = Math.max(limit - used, 0);
+              const isWarning = pct >= 70;
+              const isDanger = pct >= 90;
+              const barColor = isDanger ? "#EF4444" : isWarning ? "#F59E0B" : "#10B981";
+              return (
+                <div className="rounded-xl border p-4 mb-5" style={{ borderColor: isWarning ? (isDanger ? "#FEE2E2" : "#FEF3C7") : "var(--cream-dark)", background: isDanger ? "#FEF2F2" : isWarning ? "#FFFBEB" : "var(--cream)" }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-text-muted uppercase tracking-wide">Limite mensal da API</span>
+                    <span className="text-xs font-mono font-bold" style={{ color: barColor }}>
+                      {pct.toFixed(1)}% usado
+                    </span>
+                  </div>
+                  {/* Bar */}
+                  <div className="w-full h-3 rounded-full bg-black/8 overflow-hidden mb-3">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${pct}%`, background: barColor }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <p className="text-lg font-black text-text-dark">${used.toFixed(4)}</p>
+                      <p className="text-xs text-text-muted">Usado</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-black" style={{ color: barColor }}>${remaining.toFixed(4)}</p>
+                      <p className="text-xs text-text-muted">Restante</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-black text-text-dark">${limit.toFixed(2)}</p>
+                      <p className="text-xs text-text-muted">Limite</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="grid grid-cols-3 gap-4 mb-5">
               <div className="rounded-xl p-4" style={{ background: "var(--cream)" }}>
                 <p className="text-2xl font-black text-text-dark">{aiUsage.translationCount}</p>
@@ -126,8 +221,8 @@ export function SuperAdminDashboard({ stats, aiUsage, stores, locale }: Props) {
                 </p>
                 <p className="text-xs text-text-muted mt-0.5">Tokens totais</p>
               </div>
-              <div className="rounded-xl p-4" style={{ background: aiUsage.totalCostUsd > 3 ? "#FEF2F2" : "var(--cream)" }}>
-                <p className="text-2xl font-black" style={{ color: aiUsage.totalCostUsd > 3 ? "#EF4444" : "var(--text-dark)" }}>
+              <div className="rounded-xl p-4" style={{ background: "var(--cream)" }}>
+                <p className="text-2xl font-black text-text-dark">
                   ${aiUsage.totalCostUsd.toFixed(4)}
                 </p>
                 <p className="text-xs text-text-muted mt-0.5">Custo estimado (USD)</p>
@@ -167,18 +262,33 @@ export function SuperAdminDashboard({ stats, aiUsage, stores, locale }: Props) {
           </div>
         </div>
 
+        {/* Nav cards */}
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          {[
+            { href: `/${locale}/admin/lojas`, label: "Lojas", desc: "Gerenciar todas as lojas", icon: "🏪" },
+            { href: `/${locale}/admin/assinaturas`, label: "Assinaturas", desc: "Financeiro e pagamentos", icon: "💳" },
+            { href: `/${locale}/admin/usuarios`, label: "Usuários", desc: "Gestão de contas e roles", icon: "👥" },
+          ].map((nav) => (
+            <Link
+              key={nav.href}
+              href={nav.href}
+              className="rounded-2xl border p-5 hover:shadow-md transition-shadow flex flex-col gap-2"
+              style={{ background: "white", borderColor: "var(--cream-dark)" }}
+            >
+              <span className="text-2xl">{nav.icon}</span>
+              <p className="font-bold text-text-dark">{nav.label}</p>
+              <p className="text-xs text-text-muted">{nav.desc}</p>
+            </Link>
+          ))}
+        </div>
+
         {/* Stores table */}
         <div className="rounded-2xl border overflow-hidden" style={{ background: "white", borderColor: "var(--cream-dark)" }}>
           <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: "var(--cream-dark)" }}>
-            <h2 className="font-bold text-text-dark">Lojas</h2>
-            <div className="flex gap-2">
-              <Link href={`/${locale}/admin/usuarios`} className="text-xs font-medium text-text-muted hover:text-text-dark px-3 py-1.5 rounded-lg border transition-colors" style={{ borderColor: "var(--cream-dark)" }}>
-                Usuários
-              </Link>
-              <Link href={`/${locale}/admin/assinaturas`} className="text-xs font-medium text-text-muted hover:text-text-dark px-3 py-1.5 rounded-lg border transition-colors" style={{ borderColor: "var(--cream-dark)" }}>
-                Assinaturas
-              </Link>
-            </div>
+            <h2 className="font-bold text-text-dark">Lojas recentes</h2>
+            <Link href={`/${locale}/admin/lojas`} className="text-xs font-medium text-text-muted hover:text-text-dark px-3 py-1.5 rounded-lg border transition-colors" style={{ borderColor: "var(--cream-dark)" }}>
+              Ver todas
+            </Link>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">

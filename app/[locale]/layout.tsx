@@ -6,8 +6,8 @@ import { routing } from "@/i18n/routing";
 import "../globals.css";
 
 export const metadata: Metadata = {
-  title: "Cafe AT",
-  description: "De Tamandare para as nacoes",
+  title: "E-Coffee",
+  description: "Cardápio digital para cafeterias",
 };
 
 type Props = {

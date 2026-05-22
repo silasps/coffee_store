@@ -29,10 +29,11 @@ type Props = {
   };
   categories: CategoryNav[];
   products: ProductCardData[];
+  popularProductIds: string[];
   locale: string;
 };
 
-export function MenuBrowser({ store, categories, products, locale }: Props) {
+export function MenuBrowser({ store, categories, products, popularProductIds, locale }: Props) {
   const t = useTranslations("menu");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
     categories.length > 0 ? categories[0].id : null
@@ -67,7 +68,12 @@ export function MenuBrowser({ store, categories, products, locale }: Props) {
       );
     } else if (selectedCategory) {
       if (selectedCategory === "__popular") {
-        list = list.filter((p) => p.tags.includes("POPULAR"));
+        const pinnedIds = new Set(list.filter((p) => p.tags.includes("POPULAR")).map((p) => p.id));
+        const pinned = list.filter((p) => pinnedIds.has(p.id));
+        const auto = popularProductIds
+          .map((id) => list.find((p) => p.id === id))
+          .filter((p): p is ProductCardData => !!p && !pinnedIds.has(p.id));
+        list = [...pinned, ...auto].slice(0, 10);
       } else if (selectedCategory === "__suggested") {
         list = list.filter((p) => p.tags.includes("SUGGESTED"));
       } else if (selectedCategory === "__combos") {
@@ -91,6 +97,8 @@ export function MenuBrowser({ store, categories, products, locale }: Props) {
         logoUrl={store.logoUrl}
         name={storeName}
         slogan={storeSlogan}
+        storeSlug={store.slug}
+        locale={locale}
         causeTitlePt={store.causeTitlePt}
         causeTitleEn={store.causeTitleEn}
         causeTextPt={store.causeTextPt}
@@ -167,8 +175,8 @@ export function MenuBrowser({ store, categories, products, locale }: Props) {
               className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3"
             >
               <AnimatePresence mode="popLayout">
-                {filteredProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                {filteredProducts.map((product, i) => (
+                  <ProductCard key={product.id} product={product} priority={i < 4} />
                 ))}
               </AnimatePresence>
             </motion.div>

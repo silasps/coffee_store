@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { Plus, Store, Package, ShoppingBag, ExternalLink, Settings } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { CreateStoreModal } from "@/components/admin/create-store-modal";
 
 type StoreCard = {
   id: string;
@@ -26,6 +29,7 @@ type Props = {
 
 export function StoreListClient({ stores, locale, isSuperAdmin, userName }: Props) {
   const router = useRouter();
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   async function handleLogout() {
     const supabase = createClient();
@@ -41,14 +45,15 @@ export function StoreListClient({ stores, locale, isSuperAdmin, userName }: Prop
         style={{ background: "var(--brown-dark)", borderColor: "var(--brown-mid)" }}
       >
         <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-white font-bold text-sm"
-            style={{ background: "var(--orange)" }}
-          >
-            ☕
-          </div>
+          <Image
+            src="/ecoffee-icon.svg"
+            alt="E-Coffee"
+            width={32}
+            height={32}
+            className="rounded-xl flex-shrink-0"
+          />
           <div>
-            <p className="text-white font-bold text-sm">Café AT</p>
+            <p className="text-white font-bold text-sm">E-Coffee</p>
             <p className="text-cream/50 text-xs">{isSuperAdmin ? "Super Admin" : "Painel do Dono"}</p>
           </div>
         </div>
@@ -72,14 +77,14 @@ export function StoreListClient({ stores, locale, isSuperAdmin, userName }: Prop
             <p className="text-sm text-text-muted">{stores.length} loja{stores.length !== 1 ? "s" : ""}</p>
           </div>
           {!isSuperAdmin && (
-            <Link
-              href={`/${locale}/painel/nova-loja`}
+            <button
+              onClick={() => setShowCreateModal(true)}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
               style={{ background: "var(--orange)" }}
             >
               <Plus size={16} />
               Nova Loja
-            </Link>
+            </button>
           )}
         </div>
 
@@ -93,14 +98,14 @@ export function StoreListClient({ stores, locale, isSuperAdmin, userName }: Prop
               <p className="font-semibold text-text-dark">Nenhuma loja ainda</p>
               <p className="text-sm text-text-muted mt-1">Crie sua primeira loja para começar</p>
             </div>
-            <Link
-              href={`/${locale}/painel/nova-loja`}
+            <button
+              onClick={() => setShowCreateModal(true)}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
               style={{ background: "var(--orange)" }}
             >
               <Plus size={16} />
               Criar loja
-            </Link>
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -175,20 +180,26 @@ export function StoreListClient({ stores, locale, isSuperAdmin, userName }: Prop
                     <Settings size={14} />
                     Gerenciar
                   </Link>
-                  <Link
+                  <a
                     href={`/${locale}/${store.slug}`}
                     target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Abrir ${store.namePt} em nova aba`}
                     className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition-colors hover:bg-cream-dark"
                     style={{ borderColor: "var(--cream-dark)", color: "var(--text-muted)" }}
                   >
                     <ExternalLink size={14} />
-                  </Link>
+                  </a>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {showCreateModal && (
+        <CreateStoreModal locale={locale} onClose={() => setShowCreateModal(false)} />
+      )}
     </div>
   );
 }

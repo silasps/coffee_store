@@ -8,9 +8,9 @@ type Props = {
 
 export default async function ImportPage({ params }: Props) {
   const { locale, storeId } = await params;
-  await requireStoreAccess(storeId);
+  const { user } = await requireStoreAccess(storeId);
 
-  const [categories, rawProducts] = await Promise.all([
+  const [categories, rawProducts, subscription] = await Promise.all([
     db.category.findMany({
       where: { storeId, isActive: true },
       orderBy: { sortOrder: "asc" },
@@ -24,7 +24,13 @@ export default async function ImportPage({ params }: Props) {
         basePrice: true, isAvailable: true, categoryId: true, tags: true,
       },
     }),
+    db.subscription.findUnique({
+      where: { userId: user.id },
+      select: { status: true },
+    }),
   ]);
+
+  const isPaidPlan = user.role === "SUPER_ADMIN" || subscription?.status === "ACTIVE";
 
   const products = rawProducts.map((p) => ({
     id: p.id,
@@ -43,6 +49,7 @@ export default async function ImportPage({ params }: Props) {
       locale={locale}
       categories={categories}
       products={products}
+      isPaidPlan={isPaidPlan}
     />
   );
 }

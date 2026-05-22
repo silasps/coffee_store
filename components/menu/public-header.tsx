@@ -1,17 +1,21 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { ShoppingCart, Info } from "lucide-react";
+import { ShoppingCart, Info, Loader2 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { LocaleSwitcher } from "@/components/ui/locale-switcher";
 import { useCartStore } from "@/lib/cart-store";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CauseModal } from "./cause-modal";
 
 type Props = {
   logoUrl: string | null;
   name: string;
   slogan: string | null;
+  storeSlug: string;
+  locale: string;
   causeTitlePt?: string | null;
   causeTitleEn?: string | null;
   causeTextPt?: string | null;
@@ -25,6 +29,8 @@ export function PublicHeader({
   logoUrl,
   name,
   slogan,
+  storeSlug,
+  locale,
   causeTitlePt,
   causeTitleEn,
   causeTextPt,
@@ -34,8 +40,18 @@ export function PublicHeader({
   onCartClick,
 }: Props) {
   const t = useTranslations("nav");
+  const router = useRouter();
   const itemCount = useCartStore((s) => s.itemCount());
+  const [mounted, setMounted] = useState(false);
   const [showCause, setShowCause] = useState(false);
+  const [loadingSobre, setLoadingSobre] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  function handleSobreClick() {
+    setLoadingSobre(true);
+    router.push(`/${locale}/${storeSlug}/sobre`);
+  }
 
   return (
     <>
@@ -78,13 +94,24 @@ export function PublicHeader({
 
           {/* Right controls */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Nossa Causa button */}
+            {/* Sobre a marca */}
             <button
-              onClick={() => setShowCause(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-cream/80 hover:text-cream hover:bg-white/10 transition-colors"
+              onClick={handleSobreClick}
+              disabled={loadingSobre}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+              style={{
+                color: loadingSobre ? "white" : undefined,
+                background: loadingSobre ? "rgba(255,255,255,0.18)" : undefined,
+                opacity: loadingSobre ? 1 : undefined,
+              }}
+              aria-label={t("cause")}
             >
-              <Info size={14} />
-              <span className="hidden sm:inline">{t("cause")}</span>
+              <span className={`transition-colors ${loadingSobre ? "text-white" : "text-cream/80 hover:text-cream"}`}>
+                {loadingSobre ? <Loader2 size={14} className="animate-spin" /> : <Info size={14} />}
+              </span>
+              <span className={`hidden sm:inline transition-colors ${loadingSobre ? "text-white" : "text-cream/80 hover:text-cream"}`}>
+                {loadingSobre ? "Carregando..." : t("cause")}
+              </span>
             </button>
 
             {/* Language switcher */}
@@ -97,7 +124,7 @@ export function PublicHeader({
               aria-label={t("cart")}
             >
               <ShoppingCart size={20} />
-              {itemCount > 0 && (
+              {mounted && itemCount > 0 && (
                 <span
                   className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-white text-[10px] font-bold px-1"
                   style={{ background: "var(--orange)" }}

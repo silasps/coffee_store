@@ -16,7 +16,7 @@ export async function PATCH(
     categoryId,
     descriptionPt, descriptionEn, descriptionEs,
     highlightPt, highlightEn, highlightEs,
-    imageUrl, basePrice, isAvailable, sortOrder, tags,
+    imageUrl, basePrice, isAvailable, sortOrder, tags, stockQuantity, comboItems,
   } = await req.json();
 
   const product = await db.product.update({
@@ -37,6 +37,8 @@ export async function PATCH(
       ...(isAvailable !== undefined && { isAvailable }),
       ...(sortOrder !== undefined && { sortOrder }),
       ...(tags !== undefined && { tags }),
+      ...(stockQuantity !== undefined && { stockQuantity: stockQuantity != null ? parseInt(stockQuantity) : null }),
+      ...(comboItems !== undefined && { comboItems: comboItems ?? null }),
     },
   });
 

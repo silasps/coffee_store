@@ -8,6 +8,8 @@ import { useCartStore } from "@/lib/cart-store";
 import { formatCurrency } from "@/components/ui/format-currency";
 import { useState } from "react";
 
+type ComboItem = { productId: string; namePt: string; qty: number; unitPrice: number };
+
 export type ProductCardData = {
   id: string;
   slug: string;
@@ -22,16 +24,20 @@ export type ProductCardData = {
   highlightEs: string | null;
   imageUrl: string | null;
   basePrice: number | null;
+  stockQuantity: number | null;
   prepMinutes: number | null;
   isAvailable: boolean;
   tags: string[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  comboItems?: any;
 };
 
 type Props = {
   product: ProductCardData;
+  priority?: boolean;
 };
 
-export function ProductCard({ product }: Props) {
+export function ProductCard({ product, priority = false }: Props) {
   const t = useTranslations("menu");
   const cartT = useTranslations("cart");
   const locale = useLocale();
@@ -59,8 +65,15 @@ export function ProductCard({ product }: Props) {
     return product.highlightPt;
   }
 
+  const isOutOfStock = product.stockQuantity === 0;
+  const isDisabled = !product.isAvailable || isOutOfStock;
+
+  const comboItems: ComboItem[] = Array.isArray(product.comboItems) ? product.comboItems : [];
+  const comboOriginal = comboItems.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+  const comboSavings = product.basePrice != null && comboOriginal > product.basePrice ? comboOriginal - product.basePrice : 0;
+
   function handleAdd() {
-    if (!product.isAvailable) return;
+    if (isDisabled) return;
     addItem({
       id: product.id,
       productId: product.id,
@@ -83,7 +96,7 @@ export function ProductCard({ product }: Props) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={`relative flex flex-col rounded-2xl overflow-hidden shadow-sm border transition-shadow hover:shadow-md ${
-        !product.isAvailable ? "opacity-60" : ""
+        isDisabled ? "opacity-60" : ""
       }`}
       style={{ background: "white", borderColor: "var(--cream-dark)" }}
     >
@@ -126,6 +139,7 @@ export function ProductCard({ product }: Props) {
             fill
             className="object-cover"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            priority={priority}
           />
         ) : (
           <div
@@ -136,7 +150,7 @@ export function ProductCard({ product }: Props) {
           </div>
         )}
 
-        {!product.isAvailable && (
+        {isDisabled && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <span className="text-white text-sm font-semibold bg-black/60 px-3 py-1 rounded-full">
               {t("outOfStock")}
@@ -170,8 +184,18 @@ export function ProductCard({ product }: Props) {
         <div className="flex items-center justify-between mt-auto pt-1.5">
           <div className="flex flex-col">
             {product.basePrice != null && (
-              <span className="font-bold text-sm" style={{ color: "var(--brown-dark)" }}>
-                {formatCurrency(product.basePrice)}
+              <div className="flex items-baseline gap-1.5">
+                {comboSavings > 0 && (
+                  <span className="text-[10px] line-through text-text-muted">{formatCurrency(comboOriginal)}</span>
+                )}
+                <span className="font-bold text-sm" style={{ color: "var(--brown-dark)" }}>
+                  {formatCurrency(product.basePrice)}
+                </span>
+              </div>
+            )}
+            {comboSavings > 0 && (
+              <span className="text-[10px] font-semibold text-green-600">
+                Economize {formatCurrency(comboSavings)}
               </span>
             )}
             {product.prepMinutes != null && (
@@ -185,10 +209,10 @@ export function ProductCard({ product }: Props) {
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={handleAdd}
-            disabled={!product.isAvailable}
+            disabled={isDisabled}
             className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors flex-shrink-0 ${
               justAdded ? "bg-green-500" : ""
-            } ${!product.isAvailable ? "cursor-not-allowed" : "hover:opacity-90"}`}
+            } ${isDisabled ? "cursor-not-allowed" : "hover:opacity-90"}`}
             style={!justAdded ? { background: "var(--orange)" } : {}}
             aria-label={t("add")}
           >

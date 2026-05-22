@@ -9,6 +9,7 @@ type Props = {
   currentUrl: string;
   onFileReady: (file: File) => void;
   onClear: () => void;
+  aspect?: number;
 };
 
 async function getCroppedBlob(imageSrc: string, pixelCrop: Area): Promise<File> {
@@ -33,7 +34,7 @@ async function getCroppedBlob(imageSrc: string, pixelCrop: Area): Promise<File> 
   });
 }
 
-export function ImagePicker({ currentUrl, onFileReady, onClear }: Props) {
+export function ImagePicker({ currentUrl, onFileReady, onClear, aspect = 4 / 3 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [rawSrc, setRawSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -82,7 +83,7 @@ export function ImagePicker({ currentUrl, onFileReady, onClear }: Props) {
             image={rawSrc}
             crop={crop}
             zoom={zoom}
-            aspect={4 / 3}
+            aspect={aspect}
             onCropChange={setCrop}
             onZoomChange={setZoom}
             onCropComplete={onCropComplete}
@@ -138,8 +139,8 @@ export function ImagePicker({ currentUrl, onFileReady, onClear }: Props) {
       />
 
       <div
-        className="relative w-full aspect-[4/3] rounded-xl overflow-hidden cursor-pointer group"
-        style={{ background: "var(--cream-dark)" }}
+        className="relative w-full rounded-xl overflow-hidden cursor-pointer group"
+        style={{ background: "var(--cream-dark)", aspectRatio: String(aspect) }}
         onClick={() => inputRef.current?.click()}
       >
         {currentUrl ? (

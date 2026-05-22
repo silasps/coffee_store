@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, QrCode, CreditCard, Link, Store } from "lucide-react";
 import { useCartStore } from "@/lib/cart-store";
 import { formatCurrency } from "@/components/ui/format-currency";
+import { CafeLoaderOverlay } from "@/components/ui/cafe-loader";
 
 const schema = z.object({
   customerName: z.string().min(2),
@@ -66,10 +67,13 @@ export function CheckoutClient({ store, locale }: Props) {
 
   const selectedPayment = watch("paymentMethod");
 
-  if (items.length === 0) {
-    router.replace(`/${locale}/${store.slug}`);
-    return null;
-  }
+  useEffect(() => {
+    if (items.length === 0) {
+      router.replace(`/${locale}/${store.slug}`);
+    }
+  }, [items.length, locale, store.slug, router]);
+
+  if (items.length === 0) return null;
 
   async function onSubmit(data: FormData) {
     setSubmitting(true);
@@ -108,6 +112,7 @@ export function CheckoutClient({ store, locale }: Props) {
 
   return (
     <div className="min-h-screen" style={{ background: "var(--cream)" }}>
+      <CafeLoaderOverlay visible={submitting} />
       <div className="max-w-lg mx-auto px-4 py-6">
         {/* Back */}
         <button

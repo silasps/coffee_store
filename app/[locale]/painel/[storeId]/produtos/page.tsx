@@ -8,7 +8,7 @@ type Props = {
 
 export default async function ProductsPage({ params }: Props) {
   const { storeId } = await params;
-  await requireStoreAccess(storeId);
+  const { user } = await requireStoreAccess(storeId);
 
   const [products, categories, store] = await Promise.all([
     db.product.findMany({
@@ -19,13 +19,20 @@ export default async function ProductsPage({ params }: Props) {
     db.category.findMany({
       where: { storeId, isActive: true },
       orderBy: { sortOrder: "asc" },
-      select: { id: true, namePt: true },
+      select: { id: true, namePt: true, area: true },
     }),
     db.store.findUnique({ where: { id: storeId }, select: { defaultLocale: true } }),
   ]);
 
+  const subscription = await db.subscription.findUnique({
+    where: { userId: user.id },
+    select: { status: true },
+  });
+  const isPaidPlan = user.role === "SUPER_ADMIN" || subscription?.status === "ACTIVE";
+
   return (
     <ProductsManager
+      isPaidPlan={isPaidPlan}
       products={products.map((p) => ({
         id: p.id,
         namePt: p.namePt,
@@ -41,9 +48,11 @@ export default async function ProductsPage({ params }: Props) {
         highlightEs: p.highlightEs,
         imageUrl: p.imageUrl,
         basePrice: p.basePrice ? Number(p.basePrice) : null,
+        stockQuantity: p.stockQuantity,
         isAvailable: p.isAvailable,
         tags: p.tags as string[],
         sortOrder: p.sortOrder,
+        comboItems: p.comboItems ?? null,
       }))}
       categories={categories}
       storeId={storeId}

@@ -18,6 +18,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${name} — Menu`,
     description: slogan ?? undefined,
+    ...(store.logoUrl && {
+      icons: { icon: store.logoUrl, apple: store.logoUrl },
+    }),
   };
 }
 
@@ -45,29 +48,42 @@ export default async function MenuPage({ params }: Props) {
     },
   });
 
-  const products = await db.product.findMany({
-    where: { storeId: store.id, isAvailable: true },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-    select: {
-      id: true,
-      slug: true,
-      categoryId: true,
-      namePt: true,
-      nameEn: true,
-      nameEs: true,
-      descriptionPt: true,
-      descriptionEn: true,
-      descriptionEs: true,
-      highlightPt: true,
-      highlightEn: true,
-      highlightEs: true,
-      imageUrl: true,
-      basePrice: true,
-      prepMinutes: true,
-      isAvailable: true,
-      tags: true,
-    },
-  });
+  const [products, topSoldRaw] = await Promise.all([
+    db.product.findMany({
+      where: { storeId: store.id, isAvailable: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        slug: true,
+        categoryId: true,
+        namePt: true,
+        nameEn: true,
+        nameEs: true,
+        descriptionPt: true,
+        descriptionEn: true,
+        descriptionEs: true,
+        highlightPt: true,
+        highlightEn: true,
+        highlightEs: true,
+        imageUrl: true,
+        basePrice: true,
+        stockQuantity: true,
+        prepMinutes: true,
+        isAvailable: true,
+        tags: true,
+        comboItems: true,
+      },
+    }),
+    db.orderItem.groupBy({
+      by: ["productId"],
+      where: { order: { storeId: store.id }, productId: { not: null } },
+      _sum: { quantity: true },
+      orderBy: { _sum: { quantity: "desc" } },
+      take: 10,
+    }),
+  ]);
+
+  const popularProductIds = topSoldRaw.map((r) => r.productId as string);
 
   const categoryNavData = categories.map((c) => ({
     id: c.id,
@@ -83,11 +99,14 @@ export default async function MenuPage({ params }: Props) {
   const productData = products.map((p) => ({
     ...p,
     basePrice: p.basePrice ? Number(p.basePrice) : null,
+    stockQuantity: p.stockQuantity,
     tags: p.tags as string[],
+    comboItems: p.comboItems ?? null,
   }));
 
   return (
     <MenuBrowser
+      popularProductIds={popularProductIds}
       store={{
         slug: store.slug,
         namePt: store.namePt,

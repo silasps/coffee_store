@@ -14,7 +14,7 @@ export default async function SuperAdminPage({ params }: Props) {
   thisMonthStart.setDate(1);
   thisMonthStart.setHours(0, 0, 0, 0);
 
-  const [userCount, storeCount, activeSubscriptions, aiUsageThisMonth, aiUsageByStore] = await Promise.all([
+  const [userCount, storeCount, activeSubscriptions, aiUsageThisMonth, aiUsageByStore, systemAlerts] = await Promise.all([
     db.user.count(),
     db.store.count(),
     db.subscription.count({ where: { status: { in: ["ACTIVE", "TRIALING"] } } }),
@@ -30,6 +30,10 @@ export default async function SuperAdminPage({ params }: Props) {
       _count: true,
       orderBy: { _sum: { inputTokens: "desc" } },
       take: 10,
+    }),
+    db.systemAlert.findMany({
+      where: { isRead: false },
+      orderBy: { createdAt: "desc" },
     }),
   ]);
 
@@ -70,9 +74,16 @@ export default async function SuperAdminPage({ params }: Props) {
   const totalOutputTokens = aiUsageThisMonth._sum.outputTokens ?? 0;
   const totalCostUsd = totalInputTokens * INPUT_COST_PER_TOKEN + totalOutputTokens * OUTPUT_COST_PER_TOKEN;
 
+  const anthropicAccount = {
+    planName: process.env.ANTHROPIC_PLAN_NAME ?? "Free",
+    monthlyLimitUsd: parseFloat(process.env.ANTHROPIC_MONTHLY_LIMIT_USD ?? "5"),
+  };
+
   return (
     <SuperAdminDashboard
       stats={{ userCount, storeCount, activeSubscriptions }}
+      systemAlerts={systemAlerts.map((a) => ({ id: a.id, type: a.type, title: a.title, message: a.message, createdAt: a.createdAt.toISOString() }))}
+      anthropicAccount={anthropicAccount}
       aiUsage={{
         translationCount: aiUsageThisMonth._count,
         totalInputTokens,

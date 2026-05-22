@@ -51,6 +51,7 @@ export default async function SellerPage({ params }: Props) {
       highlightEs: true,
       imageUrl: true,
       basePrice: true,
+      stockQuantity: true,
       prepMinutes: true,
       isAvailable: true,
       tags: true,
@@ -71,6 +72,7 @@ export default async function SellerPage({ params }: Props) {
   const productData = products.map((p) => ({
     ...p,
     basePrice: p.basePrice ? Number(p.basePrice) : null,
+    stockQuantity: p.stockQuantity,
     tags: p.tags as string[],
   }));
 

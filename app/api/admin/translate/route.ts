@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
+import { sendDeveloperAlert } from "@/lib/mailer";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -20,6 +21,18 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const dbUser = await db.user.findUnique({
+    where: { authId: user.id },
+    select: { role: true, subscription: { select: { status: true } } },
+  });
+
+  const isSuperAdmin = dbUser?.role === "SUPER_ADMIN";
+  const isPaid = dbUser?.subscription?.status === "ACTIVE";
+
+  if (!isSuperAdmin && !isPaid) {
+    return NextResponse.json({ error: "Recurso disponível apenas em planos pagos." }, { status: 403 });
+  }
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY não configurada no servidor." }, { status: 500 });
@@ -51,7 +64,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ name: null, description: null, highlight: null });
   }
 
-  const message = await client.messages.create({
+  let message;
+  try {
+    message = await client.messages.create({
     model: "claude-haiku-4-5",
     max_tokens: 1024,
     system: `You are a professional copywriter for specialty coffee shops and food & beverage brands.
@@ -73,7 +88,23 @@ Do not include any explanation, markdown, or extra text — only the JSON object
         content: `Translate the following product fields from ${sourceLabel} to ${targetLabel}:\n\n${fieldLines}`,
       },
     ],
-  });
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("credit balance") || msg.includes("billing")) {
+      const alertTitle = "Saldo Anthropic insuficiente";
+      const alertMsg = "A API da Anthropic retornou erro de saldo insuficiente. As funcionalidades de IA estão indisponíveis. Acesse console.anthropic.com → Plans & Billing para adicionar créditos.";
+      await Promise.allSettled([
+        db.systemAlert.create({ data: { type: "ANTHROPIC_BILLING", title: alertTitle, message: alertMsg } }),
+        sendDeveloperAlert(
+          `⚠️ ${alertTitle} — Café AT`,
+          `<p><strong>${alertTitle}</strong></p><p>${alertMsg}</p><p>Horário: ${new Date().toLocaleString("pt-BR")}</p>`
+        ),
+      ]);
+      return NextResponse.json({ error: "Serviço de IA indisponível. Entre em contato com o desenvolvedor." }, { status: 503 });
+    }
+    return NextResponse.json({ error: "Erro ao contatar a IA. Tente novamente." }, { status: 502 });
+  }
 
   const raw = message.content[0].type === "text" ? message.content[0].text.trim() : "";
 

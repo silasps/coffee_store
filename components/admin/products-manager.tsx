@@ -21,21 +21,27 @@ type Product = {
   highlightEs: string | null;
   imageUrl: string | null;
   basePrice: number | null;
+  stockQuantity: number | null;
   isAvailable: boolean;
   tags: string[];
   sortOrder: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  comboItems: any;
 };
 
-type Category = { id: string; namePt: string };
+type Category = { id: string; namePt: string; area: string };
+
+export type SimpleProduct = { id: string; namePt: string; basePrice: number | null; categoryName: string };
 
 type Props = {
   products: Product[];
   categories: Category[];
   storeId: string;
   defaultLocale: string;
+  isPaidPlan: boolean;
 };
 
-export function ProductsManager({ products: initial, categories, storeId, defaultLocale }: Props) {
+export function ProductsManager({ products: initial, categories, storeId, defaultLocale, isPaidPlan }: Props) {
   const [products, setProducts] = useState(initial);
   const [search, setSearch] = useState("");
   const [selectedCat, setSelectedCat] = useState<string>("all");
@@ -146,11 +152,16 @@ export function ProductsManager({ products: initial, categories, storeId, defaul
                 <p className="font-semibold text-sm text-text-dark truncate">{product.namePt}</p>
                 <p className="text-xs text-text-muted mb-2">{product.categoryName}</p>
                 {product.basePrice != null && (
-                  <p className="font-bold text-sm mb-3" style={{ color: "var(--orange)" }}>
+                  <p className="font-bold text-sm" style={{ color: "var(--orange)" }}>
                     {formatCurrency(product.basePrice)}
                   </p>
                 )}
-                <div className="flex items-center gap-2">
+                {product.stockQuantity != null && (
+                  <p className={`text-xs font-medium mb-1 ${product.stockQuantity === 0 ? "text-red-500" : "text-text-muted"}`}>
+                    {product.stockQuantity === 0 ? "Esgotado" : `Estoque: ${product.stockQuantity}`}
+                  </p>
+                )}
+                <div className="flex items-center gap-2 mt-2">
                   <button
                     onClick={() => toggleAvailable(product.id, product.isAvailable)}
                     className="flex items-center gap-1.5 text-xs font-medium transition-colors"
@@ -185,8 +196,10 @@ export function ProductsManager({ products: initial, categories, storeId, defaul
           storeId={storeId}
           defaultLocale={defaultLocale}
           categories={categories}
+          allProducts={products.map((p) => ({ id: p.id, namePt: p.namePt, basePrice: p.basePrice, categoryName: p.categoryName }))}
           product={modalProduct === "new" ? undefined : modalProduct}
           onClose={() => setModalProduct(null)}
+          isPaidPlan={isPaidPlan}
         />
       )}
     </div>

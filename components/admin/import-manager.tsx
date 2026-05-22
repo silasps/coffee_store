@@ -39,6 +39,7 @@ type Props = {
   locale: string;
   categories: Category[];
   products: Product[];
+  isPaidPlan: boolean;
 };
 
 const CSV_HEADER = "categoria;nome;descricao;destaque;preco;disponivel;tags";
@@ -72,10 +73,10 @@ function downloadBlob(content: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function ImportManager({ storeId, locale, categories, products }: Props) {
+export function ImportManager({ storeId, locale, categories, products, isPaidPlan }: Props) {
   const router = useRouter();
   const [mainTab, setMainTab] = useState<"import" | "export">("import");
-  const [importMode, setImportMode] = useState<"ai" | "csv">("ai");
+  const [importMode, setImportMode] = useState<"ai" | "csv">(isPaidPlan ? "ai" : "csv");
   const [step, setStep] = useState<"input" | "review" | "importing" | "done">("input");
 
   // AI input
@@ -91,6 +92,7 @@ export function ImportManager({ storeId, locale, categories, products }: Props) 
   const [reviewData, setReviewData] = useState<ReviewCategory[]>([]);
   const [importProgress, setImportProgress] = useState({ done: 0, total: 0 });
   const [importError, setImportError] = useState("");
+  const [replaceMode, setReplaceMode] = useState<"add" | "replace">("add");
 
   // ── helpers ──────────────────────────────────────────────────
 
@@ -209,6 +211,21 @@ export function ImportManager({ storeId, locale, categories, products }: Props) 
     const total = selectedCount;
     let done = 0;
     setImportProgress({ done: 0, total });
+
+    if (replaceMode === "replace") {
+      try {
+        const res = await fetch(`/api/admin/products?storeId=${storeId}`, { method: "DELETE" });
+        if (!res.ok) {
+          setImportError((await res.json().catch(() => ({}))).error ?? "Erro ao apagar produtos existentes.");
+          setStep("review");
+          return;
+        }
+      } catch {
+        setImportError("Erro de conexão ao apagar produtos existentes.");
+        setStep("review");
+        return;
+      }
+    }
 
     try {
       for (const cat of reviewData) {
@@ -347,45 +364,65 @@ ${grouped.map((cat) => `<h2>${cat.namePt}</h2>${cat.items.map((item) => `
             <>
               {/* Mode toggle */}
               <div className="flex gap-1.5 p-1 rounded-xl mb-5" style={{ background: "var(--cream-dark)" }}>
-                {(["ai", "csv"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => { setImportMode(mode); setParseError(""); setCsvError(""); }}
-                    className="flex-1 py-2 rounded-lg text-sm font-medium transition-all"
-                    style={importMode === mode
-                      ? { background: "white", color: "var(--text-dark)", boxShadow: "0 1px 3px rgba(0,0,0,.1)" }
-                      : { color: "var(--text-muted)" }}
-                  >
-                    {mode === "ai" ? "✦ Cole o cardápio (IA)" : "📄 Arquivo CSV"}
-                  </button>
-                ))}
+                <button
+                  onClick={() => { if (isPaidPlan) { setImportMode("ai"); setParseError(""); setCsvError(""); } }}
+                  className="flex-1 py-2 rounded-lg text-sm font-medium transition-all"
+                  style={importMode === "ai"
+                    ? { background: "white", color: "var(--text-dark)", boxShadow: "0 1px 3px rgba(0,0,0,.1)" }
+                    : { color: isPaidPlan ? "var(--text-muted)" : "var(--text-muted)", opacity: isPaidPlan ? 1 : 0.5 }}
+                >
+                  ✦ Cole o cardápio (IA){!isPaidPlan && " 🔒"}
+                </button>
+                <button
+                  onClick={() => { setImportMode("csv"); setParseError(""); setCsvError(""); }}
+                  className="flex-1 py-2 rounded-lg text-sm font-medium transition-all"
+                  style={importMode === "csv"
+                    ? { background: "white", color: "var(--text-dark)", boxShadow: "0 1px 3px rgba(0,0,0,.1)" }
+                    : { color: "var(--text-muted)" }}
+                >
+                  📄 Arquivo CSV
+                </button>
               </div>
 
               {/* AI input */}
               {importMode === "ai" && (
                 <>
-                  <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
-                    Cole qualquer texto — iFood, WhatsApp, lista digitada. A IA organiza automaticamente.
-                  </p>
-                  <textarea
-                    value={menuText}
-                    onChange={(e) => setMenuText(e.target.value)}
-                    placeholder={"Cafés Quentes\n\nCappuccino - R$ 9,90\nEspresso - R$ 5,50\n\nSobremesas\n\nBolo de chocolate - R$ 12,00"}
-                    rows={12}
-                    className={inputBase + " resize-none font-mono text-xs leading-relaxed"}
-                    style={inputStyle}
-                  />
-                  {parseError && <p className="text-sm text-red-500 bg-red-50 px-4 py-2.5 rounded-xl mt-3">{parseError}</p>}
-                  <button
-                    onClick={handleParseAI}
-                    disabled={!menuText.trim() || parsing}
-                    className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
-                    style={{ background: "var(--orange)" }}
-                  >
-                    {parsing
-                      ? <><Loader2 size={16} className="animate-spin" /> Analisando...</>
-                      : <><Sparkles size={16} /> Analisar com IA</>}
-                  </button>
+                  {isPaidPlan ? (
+                    <>
+                      <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+                        Cole qualquer texto — iFood, WhatsApp, lista digitada. A IA organiza automaticamente.
+                      </p>
+                      <textarea
+                        value={menuText}
+                        onChange={(e) => setMenuText(e.target.value)}
+                        placeholder={"Cafés Quentes\n\nCappuccino - R$ 9,90\nEspresso - R$ 5,50\n\nSobremesas\n\nBolo de chocolate - R$ 12,00"}
+                        rows={12}
+                        className={inputBase + " resize-none font-mono text-xs leading-relaxed"}
+                        style={inputStyle}
+                      />
+                      {parseError && <p className="text-sm text-red-500 bg-red-50 px-4 py-2.5 rounded-xl mt-3">{parseError}</p>}
+                      <button
+                        onClick={handleParseAI}
+                        disabled={!menuText.trim() || parsing}
+                        className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+                        style={{ background: "var(--orange)" }}
+                      >
+                        {parsing
+                          ? <><Loader2 size={16} className="animate-spin" /> Analisando...</>
+                          : <><Sparkles size={16} /> Analisar com IA</>}
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-12 gap-3 text-center rounded-2xl border border-dashed" style={{ borderColor: "var(--cream-dark)" }}>
+                      <Sparkles size={28} style={{ color: "var(--text-muted)", opacity: 0.4 }} />
+                      <p className="text-sm font-semibold" style={{ color: "var(--text-dark)" }}>
+                        Importação com IA — plano pago
+                      </p>
+                      <p className="text-xs max-w-xs" style={{ color: "var(--text-muted)" }}>
+                        Cole qualquer texto e a IA organiza o cardápio automaticamente. Disponível nos planos pagos.
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -530,10 +567,46 @@ ${grouped.map((cat) => `<h2>${cat.namePt}</h2>${cat.items.map((item) => `
                 ))}
               </div>
 
+              {/* Replace mode selector */}
+              <div className="mt-6 rounded-2xl border overflow-hidden" style={{ borderColor: "var(--cream-dark)" }}>
+                {(["add", "replace"] as const).map((mode) => (
+                  <label
+                    key={mode}
+                    className="flex items-start gap-3 px-4 py-3.5 cursor-pointer hover:bg-gray-50 border-b last:border-b-0"
+                    style={{ borderColor: "var(--cream-dark)" }}
+                  >
+                    <input
+                      type="radio"
+                      name="replaceMode"
+                      value={mode}
+                      checked={replaceMode === mode}
+                      onChange={() => setReplaceMode(mode)}
+                      className="mt-0.5 accent-orange-500 flex-shrink-0"
+                    />
+                    <div>
+                      <div className="text-sm font-medium" style={{ color: "var(--text-dark)" }}>
+                        {mode === "add" ? "Adicionar aos produtos existentes" : "Substituir todos os produtos"}
+                      </div>
+                      <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                        {mode === "add"
+                          ? "Os produtos atuais da loja são mantidos e os novos são adicionados."
+                          : "Todos os produtos da loja serão apagados antes de importar a nova lista."}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              {replaceMode === "replace" && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-4 py-2.5 rounded-xl mt-3">
+                  Atenção: esta ação apagará permanentemente todos os produtos atuais da loja.
+                </p>
+              )}
+
               <button
                 onClick={handleImport}
                 disabled={selectedCount === 0}
-                className="mt-6 w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+                className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
                 style={{ background: "var(--orange)" }}
               >
                 <Upload size={16} />

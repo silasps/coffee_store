@@ -29,10 +29,27 @@ const CATEGORY_LABELS: Record<string, string> = {
   SALE: "Venda", SUPPLY_PURCHASE: "Insumos", OPERATIONS: "Operações",
   RENT: "Aluguel", PAYROLL: "Folha", TAXES: "Impostos",
   UTILITIES: "Serviços", MARKETING: "Marketing", MAINTENANCE: "Manutenção",
-  EQUIPMENT: "Equipamentos", OTHER: "Outros",
+  EQUIPMENT: "Equipamentos",
 };
 
-const EXPENSE_CATS = ["SUPPLY_PURCHASE","OPERATIONS","RENT","PAYROLL","TAXES","UTILITIES","MARKETING","MAINTENANCE","EQUIPMENT","OTHER"];
+const INCOME_CATS = ["SALE"];
+const EXPENSE_CATS = ["SUPPLY_PURCHASE","OPERATIONS","RENT","PAYROLL","TAXES","UTILITIES","MARKETING","MAINTENANCE","EQUIPMENT"];
+
+function getCategoryLabel(category: string, notes: string | null): string {
+  if (category === "OTHER" && notes?.startsWith("_label:")) {
+    return notes.split("\n")[0].replace("_label:", "");
+  }
+  return CATEGORY_LABELS[category] ?? category;
+}
+
+function extractNotes(notes: string | null): string | null {
+  if (!notes) return null;
+  if (notes.startsWith("_label:")) {
+    const rest = notes.split("\n").slice(1).join("\n").trim();
+    return rest || null;
+  }
+  return notes;
+}
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const WEEKDAYS = ["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
 
@@ -51,7 +68,7 @@ function dateHeader(dateStr: string) {
   return `${WEEKDAYS[d.getDay()]}, ${d.getDate()} de ${MONTHS[d.getMonth()]}`;
 }
 
-const EMPTY_FORM = { direction: "EXPENSE" as "INCOME"|"EXPENSE", category: "SUPPLY_PURCHASE", description: "", amount: "", happenedAt: new Date().toISOString().slice(0,10), notes: "" };
+const EMPTY_FORM = { direction: "EXPENSE" as "INCOME"|"EXPENSE", category: "SUPPLY_PURCHASE", description: "", amount: "", happenedAt: new Date().toISOString().slice(0,10), notes: "", customCategory: "" };
 
 export function FinanceManager({ storeId, initialEntries, initialIncome, initialExpense, initialMonth, initialYear }: Props) {
   const [entries, setEntries] = useState(initialEntries);
@@ -87,12 +104,19 @@ export function FinanceManager({ storeId, initialEntries, initialIncome, initial
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const amount = parseFloat(form.amount.replace(",", "."));
+    const digits = form.amount.replace(/\D/g, "");
+    const amount = parseInt(digits || "0", 10) / 100;
     if (!amount || isNaN(amount) || amount <= 0) return;
     const res = await fetch("/api/admin/finance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ storeId, direction: form.direction, category: form.category, description: form.description, amount, happenedAt: form.happenedAt, notes: form.notes || null }),
+      body: JSON.stringify({
+        storeId, direction: form.direction, category: form.category,
+        description: form.description, amount, happenedAt: form.happenedAt,
+        notes: form.customCategory
+          ? `_label:${form.customCategory}${form.notes ? "\n" + form.notes : ""}`
+          : form.notes || null,
+      }),
     });
     if (res.ok) { setShowForm(false); setForm(EMPTY_FORM); await load(month, year); }
   }
@@ -119,9 +143,14 @@ export function FinanceManager({ storeId, initialEntries, initialIncome, initial
         </button>
         <p className="text-white/70 text-sm mb-1">{isIncome ? "Receita" : "Despesa"}</p>
         <input
-          type="text" inputMode="decimal"
-          value={form.amount ? `R$ ${form.amount}` : ""}
-          onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value.replace(/[^0-9.,]/g, "") }))}
+          type="text" inputMode="numeric"
+          value={form.amount}
+          onChange={(e) => {
+            const digits = e.target.value.replace(/\D/g, "");
+            const cents = parseInt(digits || "0", 10);
+            const formatted = (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+            setForm((f) => ({ ...f, amount: digits ? formatted : "" }));
+          }}
           placeholder="R$ 0,00"
           className="text-4xl font-black text-white bg-transparent border-none outline-none w-full placeholder-white/30 mb-5"
         />
@@ -154,13 +183,34 @@ export function FinanceManager({ storeId, initialEntries, initialIncome, initial
             label: "Categoria", required: true,
             icon: <><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></>,
             content: (
-              <select value={form.category}
-                onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                className="w-full text-sm font-medium text-text-dark bg-transparent outline-none">
-                {(isIncome ? ["SALE","OTHER"] : EXPENSE_CATS).map((c) => (
-                  <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
-                ))}
-              </select>
+              <div className="flex flex-col gap-2 pt-0.5">
+                <div className="flex flex-wrap gap-1.5">
+                  {(isIncome ? INCOME_CATS : EXPENSE_CATS).map((c) => (
+                    <button key={c} type="button"
+                      onClick={() => setForm((f) => ({ ...f, category: c, customCategory: "" }))}
+                      className="px-2.5 py-1 rounded-full text-xs font-semibold transition-all"
+                      style={form.category === c ? { background: accentColor, color: "white" } : { background: "#f1ece6", color: "#6b5c53" }}>
+                      {CATEGORY_LABELS[c]}
+                    </button>
+                  ))}
+                  <button type="button"
+                    onClick={() => setForm((f) => ({ ...f, category: "OTHER", customCategory: f.category === "OTHER" ? f.customCategory : "" }))}
+                    className="px-2.5 py-1 rounded-full text-xs font-semibold transition-all flex items-center gap-1"
+                    style={form.category === "OTHER" ? { background: accentColor, color: "white" } : { background: "#f1ece6", color: "#6b5c53" }}>
+                    <Plus size={11} /> Adicionar
+                  </button>
+                </div>
+                {form.category === "OTHER" && (
+                  <input
+                    autoFocus
+                    value={form.customCategory}
+                    onChange={(e) => setForm((f) => ({ ...f, customCategory: e.target.value }))}
+                    placeholder="Nome da categoria..."
+                    className="text-sm font-medium text-text-dark rounded-lg px-3 py-1.5 outline-none border"
+                    style={{ background: "#faf7f4", borderColor: "#e8ddd6" }}
+                  />
+                )}
+              </div>
             ),
           },
           {
@@ -328,7 +378,7 @@ export function FinanceManager({ storeId, initialEntries, initialIncome, initial
                   </div>
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "var(--cream)", color: "var(--text-muted)" }}>
-                      {CATEGORY_LABELS[entry.category] ?? entry.category}
+                      {getCategoryLabel(entry.category, entry.notes)}
                     </span>
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium"
                       style={entry.direction === "INCOME"
@@ -336,7 +386,7 @@ export function FinanceManager({ storeId, initialEntries, initialIncome, initial
                         : { background: "#EF444415", color: "#EF4444" }}>
                       {entry.direction === "INCOME" ? "Receita" : "Despesa"}
                     </span>
-                    {entry.notes && <span className="text-xs text-gray-400">{entry.notes}</span>}
+                    {extractNotes(entry.notes) && <span className="text-xs text-gray-400">{extractNotes(entry.notes)}</span>}
                   </div>
                 </div>
               ))}

@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
 type NavItem = {
@@ -94,12 +95,13 @@ export function AdminShell({ children, storeId, storeName, locale, userName }: P
 
           {isOpen && (
             <div className="flex items-center gap-2 overflow-hidden">
-              <div
-                className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                style={{ background: "var(--orange)" }}
-              >
-                {storeName.charAt(0)}
-              </div>
+              <Image
+                src="/ecoffee-icon.svg"
+                alt="E-Coffee"
+                width={28}
+                height={28}
+                className="rounded-lg flex-shrink-0"
+              />
               <span className="text-white font-semibold text-sm truncate">{storeName}</span>
             </div>
           )}

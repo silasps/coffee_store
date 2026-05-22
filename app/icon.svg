@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Background -->
+  <rect width="32" height="32" rx="7" fill="#E86A1A"/>
+  <!-- Cup rim -->
+  <rect x="6" y="10" width="16" height="3" rx="1.5" fill="white"/>
+  <!-- Cup body -->
+  <rect x="7" y="13" width="14" height="11" rx="2" fill="white"/>
+  <!-- Handle -->
+  <path d="M21 16 Q27 16 27 20 Q27 24 21 24" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+</svg>

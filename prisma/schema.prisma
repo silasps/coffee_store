@@ -105,11 +105,13 @@ model User {
   authId    String   @unique
   email     String   @unique
   name      String?
+  phone     String?
   avatarUrl String?
   role      UserRole @default(STORE_OWNER)
 
   stores          Store[]
   teamMemberships StoreTeamMember[]
+  invitesUsed     StoreInvite[]
   subscription    Subscription?
 
   createdAt DateTime @default(now())
@@ -177,13 +179,36 @@ model Store {
 
   causeTitlePt     String?
   causeTitleEn     String?
+  causeTitleEs     String?
   causeTextPt      String?
   causeTextEn      String?
+  causeTextEs      String?
   causeDonationPix String?
   causePaypalUrl   String?
 
+  brandHeroImageUrl  String?
+  brandAboutImageUrl String?
+  brandAboutTextPt   String?
+  brandAboutTextEn   String?
+  brandAboutTextEs   String?
+  brandJoinTitlePt   String?
+  brandJoinTitleEn   String?
+  brandJoinTitleEs   String?
+  brandJoinTextPt    String?
+  brandJoinTextEn    String?
+  brandJoinTextEs    String?
+  brandJoinCtaLabel  String?
+  brandJoinCtaUrl    String?
+  brandAboutTitlePt  String?
+  brandAboutTitleEn  String?
+  brandAboutTitleEs  String?
+  brandAboutVisible  Boolean @default(true)
+  brandCauseVisible  Boolean @default(true)
+  brandJoinVisible   Boolean @default(true)
+
   owner      User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   team       StoreTeamMember[]
+  invites    StoreInvite[]
   categories Category[]
   products   Product[]
   orders     Order[]
@@ -210,6 +235,24 @@ model StoreTeamMember {
 
   @@unique([storeId, userId])
   @@map("store_team_members")
+}
+
+model StoreInvite {
+  id        String        @id @default(cuid())
+  token     String        @unique @default(cuid())
+  storeId   String
+  role      StoreTeamRole
+  expiresAt DateTime
+  usedAt    DateTime?
+  usedById  String?
+
+  store   Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  usedBy  User?  @relation(fields: [usedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@map("store_invites")
 }
 
 // ─── CATALOG ─────────────────────────────────
@@ -261,6 +304,7 @@ model Product {
   stockQuantity Int?
   prepMinutes   Int?
   tags          ProductTag[]
+  comboItems    Json?
   isAvailable   Boolean    @default(true)
   sortOrder     Int        @default(0)
 
@@ -395,4 +439,18 @@ model FinanceEntry {
   @@index([storeId, direction, happenedAt])
   @@index([storeId, category, happenedAt])
   @@map("finance_entries")
+}
+
+// ─── SYSTEM ALERTS ───────────────────────────
+
+model SystemAlert {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([isRead, createdAt])
+  @@map("system_alerts")
 }

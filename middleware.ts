@@ -10,8 +10,15 @@ const PROTECTED_PATTERNS = [
   /^\/[a-z]{2}\/admin/,
 ];
 
+const AUTH_CALLBACK_BYPASS = /^\/[a-z]{2}\/auth\/callback/;
+
 export default function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+
+  // Let Supabase auth callback pass through without i18n processing
+  if (AUTH_CALLBACK_BYPASS.test(pathname)) {
+    return NextResponse.next();
+  }
 
   const isProtected = PROTECTED_PATTERNS.some((p) => p.test(pathname));
 

@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { storeId, namePt, categoryId, nameEn, descriptionPt, descriptionEn, imageUrl, basePrice, isAvailable, sortOrder, tags } = body;
+  const { storeId, namePt, categoryId, nameEn, descriptionPt, descriptionEn, imageUrl, basePrice, isAvailable, sortOrder, tags, stockQuantity, comboItems } = body;
 
   if (!storeId || !namePt || !categoryId) {
     return NextResponse.json({ error: "storeId, namePt e categoryId são obrigatórios" }, { status: 400 });
@@ -46,8 +46,26 @@ export async function POST(req: NextRequest) {
       isAvailable: isAvailable ?? true,
       sortOrder: sortOrder ?? 0,
       tags: tags ?? [],
+      stockQuantity: stockQuantity != null ? parseInt(stockQuantity) : null,
+      comboItems: comboItems ?? null,
     },
   });
 
   return NextResponse.json(product, { status: 201 });
+}
+
+export async function DELETE(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const storeId = searchParams.get("storeId");
+  if (!storeId) return NextResponse.json({ error: "storeId é obrigatório" }, { status: 400 });
+
+  const store = await db.store.findFirst({ where: { id: storeId } });
+  if (!store) return NextResponse.json({ error: "Loja não encontrada" }, { status: 404 });
+
+  await db.product.deleteMany({ where: { storeId } });
+  return NextResponse.json({ ok: true });
 }

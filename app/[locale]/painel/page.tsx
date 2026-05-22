@@ -12,6 +12,11 @@ export default async function PainelPage({ params }: Props) {
 
   const user = await requireAuth(locale);
 
+  // Super Admin: redirect to the platform dashboard
+  if (user.role === "SUPER_ADMIN") {
+    redirect(`/${locale}/admin`);
+  }
+
   // Store Admin: redirect directly to their store
   if (user.role === "STORE_ADMIN" || user.role === "SELLER") {
     const membership = await db.storeTeamMember.findFirst({
@@ -22,27 +27,15 @@ export default async function PainelPage({ params }: Props) {
     redirect(`/${locale}/acesso`);
   }
 
-  // Super Admin: show all stores
-  let stores;
-  if (user.role === "SUPER_ADMIN") {
-    stores = await db.store.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
-        _count: { select: { orders: true, products: true } },
-        owner: { select: { name: true, email: true } },
-      },
-    });
-  } else {
-    // Owner: show only their stores
-    stores = await db.store.findMany({
-      where: { ownerId: user.id },
-      orderBy: { createdAt: "desc" },
-      include: {
-        _count: { select: { orders: true, products: true } },
-        owner: { select: { name: true, email: true } },
-      },
-    });
-  }
+  // Owner: show only their stores
+  const stores = await db.store.findMany({
+    where: { ownerId: user.id },
+    orderBy: { createdAt: "desc" },
+    include: {
+      _count: { select: { orders: true, products: true } },
+      owner: { select: { name: true, email: true } },
+    },
+  });
 
   return (
     <StoreListClient
@@ -58,7 +51,7 @@ export default async function PainelPage({ params }: Props) {
         createdAt: s.createdAt.toISOString(),
       }))}
       locale={locale}
-      isSuperAdmin={user.role === "SUPER_ADMIN"}
+      isSuperAdmin={false}
       userName={user.name ?? user.email}
     />
   );
