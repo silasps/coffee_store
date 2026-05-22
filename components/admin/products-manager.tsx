@@ -4,19 +4,25 @@ import { useState } from "react";
 import { Plus, Search, Edit2, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import { formatCurrency } from "@/components/ui/format-currency";
 import Image from "next/image";
+import { ProductForm } from "@/components/admin/product-form";
 
 type Product = {
   id: string;
   namePt: string;
   nameEn: string | null;
+  nameEs: string | null;
+  categoryId: string;
+  categoryName: string;
   descriptionPt: string | null;
+  descriptionEn: string | null;
+  descriptionEs: string | null;
+  highlightPt: string | null;
+  highlightEn: string | null;
+  highlightEs: string | null;
   imageUrl: string | null;
   basePrice: number | null;
   isAvailable: boolean;
-  isFeatured?: boolean;
   tags: string[];
-  categoryId: string;
-  categoryName: string;
   sortOrder: number;
 };
 
@@ -26,12 +32,14 @@ type Props = {
   products: Product[];
   categories: Category[];
   storeId: string;
+  defaultLocale: string;
 };
 
-export function ProductsManager({ products: initial, categories, storeId }: Props) {
+export function ProductsManager({ products: initial, categories, storeId, defaultLocale }: Props) {
   const [products, setProducts] = useState(initial);
   const [search, setSearch] = useState("");
   const [selectedCat, setSelectedCat] = useState<string>("all");
+  const [modalProduct, setModalProduct] = useState<Product | null | "new">(null);
 
   async function toggleAvailable(productId: string, current: boolean) {
     try {
@@ -40,9 +48,7 @@ export function ProductsManager({ products: initial, categories, storeId }: Prop
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isAvailable: !current }),
       });
-      setProducts((prev) =>
-        prev.map((p) => (p.id === productId ? { ...p, isAvailable: !current } : p))
-      );
+      setProducts((prev) => prev.map((p) => (p.id === productId ? { ...p, isAvailable: !current } : p)));
     } catch {}
   }
 
@@ -67,14 +73,14 @@ export function ProductsManager({ products: initial, categories, storeId }: Prop
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-text-dark">Produtos</h1>
-        <a
-          href="./produtos/novo"
+        <button
+          onClick={() => setModalProduct("new")}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
           style={{ background: "var(--orange)" }}
         >
           <Plus size={16} />
           Novo Produto
-        </a>
+        </button>
       </div>
 
       {/* Filters */}
@@ -123,25 +129,15 @@ export function ProductsManager({ products: initial, categories, storeId }: Prop
               className={`rounded-2xl border overflow-hidden transition-opacity ${!product.isAvailable ? "opacity-60" : ""}`}
               style={{ background: "white", borderColor: "var(--cream-dark)" }}
             >
-              {/* Image */}
               <div className="relative aspect-[4/3] bg-cream-dark overflow-hidden">
                 {product.imageUrl ? (
-                  <Image
-                    src={product.imageUrl}
-                    alt={product.namePt}
-                    fill
-                    className="object-cover"
-                  />
+                  <Image src={product.imageUrl} alt={product.namePt} fill className="object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-4xl">
-                    ☕
-                  </div>
+                  <div className="w-full h-full flex items-center justify-center text-4xl">☕</div>
                 )}
                 {!product.isAvailable && (
                   <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                    <span className="text-white text-xs font-bold bg-black/50 px-2 py-1 rounded-full">
-                      Indisponível
-                    </span>
+                    <span className="text-white text-xs font-bold bg-black/50 px-2 py-1 rounded-full">Indisponível</span>
                   </div>
                 )}
               </div>
@@ -154,7 +150,6 @@ export function ProductsManager({ products: initial, categories, storeId }: Prop
                     {formatCurrency(product.basePrice)}
                   </p>
                 )}
-
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => toggleAvailable(product.id, product.isAvailable)}
@@ -165,12 +160,12 @@ export function ProductsManager({ products: initial, categories, storeId }: Prop
                     {product.isAvailable ? "Ativo" : "Inativo"}
                   </button>
                   <div className="flex-1" />
-                  <a
-                    href={`./produtos/${product.id}`}
+                  <button
+                    onClick={() => setModalProduct(product)}
                     className="p-1.5 rounded-lg hover:bg-cream-dark transition-colors text-text-muted hover:text-text-dark"
                   >
                     <Edit2 size={14} />
-                  </a>
+                  </button>
                   <button
                     onClick={() => deleteProduct(product.id)}
                     className="p-1.5 rounded-lg hover:bg-red-50 transition-colors text-text-muted hover:text-red-500"
@@ -183,6 +178,17 @@ export function ProductsManager({ products: initial, categories, storeId }: Prop
           ))
         )}
       </div>
+
+      {/* Product modal */}
+      {modalProduct !== null && (
+        <ProductForm
+          storeId={storeId}
+          defaultLocale={defaultLocale}
+          categories={categories}
+          product={modalProduct === "new" ? undefined : modalProduct}
+          onClose={() => setModalProduct(null)}
+        />
+      )}
     </div>
   );
 }

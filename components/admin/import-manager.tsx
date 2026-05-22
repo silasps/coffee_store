@@ -1,0 +1,650 @@
+"use client";
+
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Sparkles, Loader2, Check, Upload, ChevronLeft,
+  Download, Printer, FileSpreadsheet, FileText,
+} from "lucide-react";
+
+type Category = { id: string; namePt: string };
+
+type Product = {
+  id: string;
+  namePt: string;
+  descriptionPt: string | null;
+  highlightPt: string | null;
+  basePrice: number | null;
+  isAvailable: boolean;
+  categoryId: string;
+  tags: string[];
+};
+
+type ParsedProduct = {
+  name: string;
+  description: string | null;
+  price: number | null;
+};
+
+type ReviewProduct = ParsedProduct & { selected: boolean };
+
+type ReviewCategory = {
+  parsedName: string;
+  mappedCategoryId: string;
+  products: ReviewProduct[];
+};
+
+type Props = {
+  storeId: string;
+  locale: string;
+  categories: Category[];
+  products: Product[];
+};
+
+const CSV_HEADER = "categoria;nome;descricao;destaque;preco;disponivel;tags";
+const CSV_EXAMPLES = [
+  "Cafés Quentes;Cappuccino;Café espresso com leite vaporizado;O favorito da casa;9.90;sim;POPULAR",
+  "Cafés Quentes;Espresso;Café puro e encorpado;;;5.50;sim;",
+  "Sobremesas;Bolo de chocolate;Fatia generosa de bolo caseiro;;12.00;sim;FEATURED",
+  "Combos;Café da manhã;Espresso + pão de queijo + suco;;18.90;sim;COMBO",
+];
+
+function splitCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let cur = "";
+  let inQ = false;
+  for (const c of line) {
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ";" && !inQ) { result.push(cur.trim()); cur = ""; }
+    else { cur += c; }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function downloadBlob(content: string, filename: string) {
+  const blob = new Blob(["﻿" + content], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function ImportManager({ storeId, locale, categories, products }: Props) {
+  const router = useRouter();
+  const [mainTab, setMainTab] = useState<"import" | "export">("import");
+  const [importMode, setImportMode] = useState<"ai" | "csv">("ai");
+  const [step, setStep] = useState<"input" | "review" | "importing" | "done">("input");
+
+  // AI input
+  const [menuText, setMenuText] = useState("");
+  const [parsing, setParsing] = useState(false);
+  const [parseError, setParseError] = useState("");
+
+  // CSV input
+  const [csvError, setCsvError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Shared review/import
+  const [reviewData, setReviewData] = useState<ReviewCategory[]>([]);
+  const [importProgress, setImportProgress] = useState({ done: 0, total: 0 });
+  const [importError, setImportError] = useState("");
+
+  // ── helpers ──────────────────────────────────────────────────
+
+  function buildReview(parsed: { name: string; products: ParsedProduct[] }[]): ReviewCategory[] {
+    return parsed.map((pc) => {
+      const match = categories.find((c) => c.namePt.toLowerCase() === pc.name.toLowerCase());
+      return {
+        parsedName: pc.name,
+        mappedCategoryId: match ? match.id : "__new__",
+        products: pc.products.map((p) => ({ ...p, selected: true })),
+      };
+    });
+  }
+
+  // ── AI parse ─────────────────────────────────────────────────
+
+  async function handleParseAI() {
+    if (!menuText.trim()) return;
+    setParsing(true);
+    setParseError("");
+    try {
+      const res = await fetch("/api/admin/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: menuText, storeId }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setParseError(data.error ?? "Erro ao analisar."); return; }
+      setReviewData(buildReview(data.categories ?? []));
+      setStep("review");
+    } catch {
+      setParseError("Erro de conexão. Tente novamente.");
+    } finally {
+      setParsing(false);
+    }
+  }
+
+  // ── CSV parse ────────────────────────────────────────────────
+
+  function handleParseCSV(text: string) {
+    setCsvError("");
+    const lines = text.trim().split(/\r?\n/).filter((l) => l.trim() && !l.startsWith("//"));
+    if (lines.length < 2) { setCsvError("Arquivo vazio ou sem dados além do cabeçalho."); return; }
+
+    const normalize = (s: string) =>
+      s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+    const headers = splitCSVLine(lines[0]).map(normalize);
+    const col = {
+      cat: headers.findIndex((h) => h === "categoria"),
+      name: headers.findIndex((h) => h === "nome"),
+      desc: headers.findIndex((h) => h === "descricao"),
+      price: headers.findIndex((h) => h === "preco"),
+    };
+
+    if (col.cat === -1 || col.name === -1) {
+      setCsvError("Cabeçalho inválido. Colunas obrigatórias: categoria, nome.");
+      return;
+    }
+
+    const catMap = new Map<string, ReviewProduct[]>();
+    for (let i = 1; i < lines.length; i++) {
+      const cols = splitCSVLine(lines[i]);
+      const catName = cols[col.cat];
+      const name = cols[col.name];
+      if (!catName || !name) continue;
+
+      const rawPrice = parseFloat((cols[col.price] ?? "").replace(",", "."));
+      const price = isNaN(rawPrice) ? null : rawPrice;
+      const description = col.desc >= 0 ? cols[col.desc] || null : null;
+
+      if (!catMap.has(catName)) catMap.set(catName, []);
+      catMap.get(catName)!.push({ name, description, price, selected: true });
+    }
+
+    if (catMap.size === 0) { setCsvError("Nenhum produto encontrado. Verifique o formato."); return; }
+
+    const result: ReviewCategory[] = [];
+    catMap.forEach((prods, parsedName) => {
+      const match = categories.find((c) => c.namePt.toLowerCase() === parsedName.toLowerCase());
+      result.push({ parsedName, mappedCategoryId: match ? match.id : "__new__", products: prods });
+    });
+
+    setReviewData(result);
+    setStep("review");
+  }
+
+  // ── review actions ───────────────────────────────────────────
+
+  function toggleProduct(ci: number, pi: number) {
+    setReviewData((prev) =>
+      prev.map((cat, i) =>
+        i !== ci ? cat : { ...cat, products: cat.products.map((p, j) => j !== pi ? p : { ...p, selected: !p.selected }) }
+      )
+    );
+  }
+
+  function toggleCategory(ci: number) {
+    const all = reviewData[ci].products.every((p) => p.selected);
+    setReviewData((prev) =>
+      prev.map((cat, i) => i !== ci ? cat : { ...cat, products: cat.products.map((p) => ({ ...p, selected: !all })) })
+    );
+  }
+
+  function setMapping(ci: number, val: string) {
+    setReviewData((prev) => prev.map((cat, i) => i !== ci ? cat : { ...cat, mappedCategoryId: val }));
+  }
+
+  const selectedCount = reviewData.reduce((s, c) => s + c.products.filter((p) => p.selected).length, 0);
+
+  // ── import ───────────────────────────────────────────────────
+
+  async function handleImport() {
+    setStep("importing");
+    setImportError("");
+    const total = selectedCount;
+    let done = 0;
+    setImportProgress({ done: 0, total });
+
+    try {
+      for (const cat of reviewData) {
+        const selected = cat.products.filter((p) => p.selected);
+        if (!selected.length) continue;
+
+        let categoryId = cat.mappedCategoryId;
+        if (categoryId === "__new__") {
+          const res = await fetch("/api/admin/categories", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ storeId, namePt: cat.parsedName }),
+          });
+          if (!res.ok) {
+            setImportError((await res.json().catch(() => ({}))).error ?? `Erro ao criar "${cat.parsedName}".`);
+            setStep("review");
+            return;
+          }
+          categoryId = (await res.json()).id;
+        }
+
+        for (const p of selected) {
+          const res = await fetch("/api/admin/products", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              storeId, categoryId,
+              namePt: p.name,
+              descriptionPt: p.description || null,
+              basePrice: p.price,
+              isAvailable: true,
+              sortOrder: 0,
+              tags: [],
+            }),
+          });
+          if (!res.ok) {
+            setImportError((await res.json().catch(() => ({}))).error ?? `Erro ao criar "${p.name}".`);
+            setStep("review");
+            return;
+          }
+          done++;
+          setImportProgress({ done, total });
+        }
+      }
+
+      setStep("done");
+      router.refresh();
+    } catch {
+      setImportError("Erro de conexão. Tente novamente.");
+      setStep("review");
+    }
+  }
+
+  // ── export ───────────────────────────────────────────────────
+
+  function downloadTemplate() {
+    downloadBlob([CSV_HEADER, ...CSV_EXAMPLES].join("\n"), "modelo-cardapio.csv");
+  }
+
+  function exportCSV() {
+    const rows = products.map((p) => {
+      const cat = categories.find((c) => c.id === p.categoryId)?.namePt ?? "";
+      return [
+        cat, p.namePt, p.descriptionPt ?? "", p.highlightPt ?? "",
+        p.basePrice != null ? String(p.basePrice) : "",
+        p.isAvailable ? "sim" : "nao",
+        p.tags.join("|"),
+      ].join(";");
+    });
+    downloadBlob([CSV_HEADER, ...rows].join("\n"), "cardapio-exportado.csv");
+  }
+
+  function printMenu() {
+    const grouped = categories
+      .map((cat) => ({ ...cat, items: products.filter((p) => p.categoryId === cat.id && p.isAvailable) }))
+      .filter((c) => c.items.length > 0);
+
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><title>Cardápio</title>
+<style>
+  body{font-family:Georgia,serif;max-width:680px;margin:0 auto;padding:32px;color:#1a1a1a}
+  h1{text-align:center;font-size:26px;letter-spacing:3px;text-transform:uppercase;margin-bottom:4px}
+  .sub{text-align:center;color:#999;font-size:12px;margin-bottom:36px;letter-spacing:1px}
+  h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:#999;margin:32px 0 8px;padding-bottom:6px;border-bottom:1px solid #e8e8e8}
+  .item{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px dotted #ddd;gap:16px}
+  .name{font-size:14px;font-weight:700}
+  .desc{font-size:12px;color:#777;margin-top:3px;line-height:1.45}
+  .price{font-size:14px;font-weight:700;white-space:nowrap}
+  .print-btn{position:fixed;top:16px;right:16px;padding:8px 18px;background:#e96b2a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:sans-serif}
+  @media print{.print-btn{display:none}}
+</style></head><body>
+<button class="print-btn" onclick="window.print()">Imprimir / PDF</button>
+<h1>Cardápio</h1>
+<div class="sub">gerado em ${new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}</div>
+${grouped.map((cat) => `<h2>${cat.namePt}</h2>${cat.items.map((item) => `
+<div class="item">
+  <div><div class="name">${item.namePt}</div>${item.descriptionPt ? `<div class="desc">${item.descriptionPt}</div>` : ""}</div>
+  ${item.basePrice != null ? `<div class="price">R$ ${Number(item.basePrice).toFixed(2).replace(".", ",")}</div>` : ""}
+</div>`).join("")}`).join("")}
+</body></html>`;
+
+    const win = window.open("", "_blank");
+    if (win) { win.document.write(html); win.document.close(); }
+  }
+
+  // ── styles ───────────────────────────────────────────────────
+
+  const inputBase = "w-full px-3 py-2.5 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-orange-400/50";
+  const inputStyle = { borderColor: "var(--cream-dark)", background: "white" };
+
+  // ── render ───────────────────────────────────────────────────
+
+  return (
+    <div className="p-6 max-w-2xl mx-auto">
+      {/* Main tabs */}
+      <div className="flex gap-1 mb-6 border-b" style={{ borderColor: "var(--cream-dark)" }}>
+        {(["import", "export"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => { setMainTab(tab); setStep("input"); }}
+            className="px-5 py-2.5 text-sm font-medium transition-all rounded-t-lg -mb-px"
+            style={mainTab === tab
+              ? { background: "white", border: "1px solid var(--cream-dark)", borderBottom: "1px solid white", color: "var(--orange)" }
+              : { color: "var(--text-muted)" }}
+          >
+            {tab === "import" ? "Importar" : "Exportar"}
+          </button>
+        ))}
+      </div>
+
+      {/* ===== IMPORT ===== */}
+      {mainTab === "import" && (
+        <>
+          {/* Input step */}
+          {step === "input" && (
+            <>
+              {/* Mode toggle */}
+              <div className="flex gap-1.5 p-1 rounded-xl mb-5" style={{ background: "var(--cream-dark)" }}>
+                {(["ai", "csv"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => { setImportMode(mode); setParseError(""); setCsvError(""); }}
+                    className="flex-1 py-2 rounded-lg text-sm font-medium transition-all"
+                    style={importMode === mode
+                      ? { background: "white", color: "var(--text-dark)", boxShadow: "0 1px 3px rgba(0,0,0,.1)" }
+                      : { color: "var(--text-muted)" }}
+                  >
+                    {mode === "ai" ? "✦ Cole o cardápio (IA)" : "📄 Arquivo CSV"}
+                  </button>
+                ))}
+              </div>
+
+              {/* AI input */}
+              {importMode === "ai" && (
+                <>
+                  <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+                    Cole qualquer texto — iFood, WhatsApp, lista digitada. A IA organiza automaticamente.
+                  </p>
+                  <textarea
+                    value={menuText}
+                    onChange={(e) => setMenuText(e.target.value)}
+                    placeholder={"Cafés Quentes\n\nCappuccino - R$ 9,90\nEspresso - R$ 5,50\n\nSobremesas\n\nBolo de chocolate - R$ 12,00"}
+                    rows={12}
+                    className={inputBase + " resize-none font-mono text-xs leading-relaxed"}
+                    style={inputStyle}
+                  />
+                  {parseError && <p className="text-sm text-red-500 bg-red-50 px-4 py-2.5 rounded-xl mt-3">{parseError}</p>}
+                  <button
+                    onClick={handleParseAI}
+                    disabled={!menuText.trim() || parsing}
+                    className="mt-4 w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+                    style={{ background: "var(--orange)" }}
+                  >
+                    {parsing
+                      ? <><Loader2 size={16} className="animate-spin" /> Analisando...</>
+                      : <><Sparkles size={16} /> Analisar com IA</>}
+                  </button>
+                </>
+              )}
+
+              {/* CSV input */}
+              {importMode === "csv" && (
+                <>
+                  {/* Template card */}
+                  <div className="rounded-xl p-4 mb-4 border" style={{ borderColor: "var(--cream-dark)", background: "var(--cream)" }}>
+                    <p className="text-sm font-semibold mb-0.5" style={{ color: "var(--text-dark)" }}>
+                      Baixar modelo
+                    </p>
+                    <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+                      Preencha no Google Sheets ou Excel. Salve como CSV (separador ponto-e-vírgula).
+                    </p>
+                    <button
+                      onClick={downloadTemplate}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors hover:bg-white"
+                      style={{ borderColor: "var(--cream-dark)", color: "var(--text-dark)" }}
+                    >
+                      <Download size={14} /> modelo-cardapio.csv
+                    </button>
+                  </div>
+
+                  {/* Columns reference */}
+                  <div className="rounded-xl px-4 py-3 mb-4 text-xs" style={{ background: "var(--cream-dark)" }}>
+                    <p className="font-semibold mb-2" style={{ color: "var(--text-dark)" }}>Colunas:</p>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-1" style={{ color: "var(--text-muted)" }}>
+                      <span><b style={{ color: "var(--text-dark)" }}>categoria</b> — obrigatório</span>
+                      <span><b style={{ color: "var(--text-dark)" }}>nome</b> — obrigatório</span>
+                      <span><b style={{ color: "var(--text-dark)" }}>descricao</b> — opcional</span>
+                      <span><b style={{ color: "var(--text-dark)" }}>destaque</b> — opcional</span>
+                      <span><b style={{ color: "var(--text-dark)" }}>preco</b> — ex: 9.90</span>
+                      <span><b style={{ color: "var(--text-dark)" }}>disponivel</b> — sim / nao</span>
+                      <span className="col-span-2">
+                        <b style={{ color: "var(--text-dark)" }}>tags</b> — separadas por |&nbsp;
+                        <span className="opacity-70">(POPULAR, SUGGESTED, NEW, COMBO, FEATURED)</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* File drop zone */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = () => handleParseCSV(reader.result as string);
+                      reader.readAsText(file, "utf-8");
+                      e.target.value = "";
+                    }}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full flex flex-col items-center gap-2 py-8 rounded-xl border-2 border-dashed text-sm transition-colors hover:bg-gray-50"
+                    style={{ borderColor: "var(--cream-dark)", color: "var(--text-muted)" }}
+                  >
+                    <FileText size={26} className="opacity-40" />
+                    Selecionar arquivo CSV
+                  </button>
+                  {csvError && <p className="text-sm text-red-500 bg-red-50 px-4 py-2.5 rounded-xl mt-3">{csvError}</p>}
+                </>
+              )}
+            </>
+          )}
+
+          {/* Review step */}
+          {step === "review" && (
+            <>
+              <div className="flex items-center gap-2 mb-1">
+                <button
+                  onClick={() => setStep("input")}
+                  className="p-1 rounded-lg hover:bg-gray-100"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <h2 className="text-xl font-bold" style={{ color: "var(--text-dark)" }}>Revisar produtos</h2>
+              </div>
+              <p className="text-sm mb-5 ml-8" style={{ color: "var(--text-muted)" }}>
+                {selectedCount} produto{selectedCount !== 1 ? "s" : ""} selecionado{selectedCount !== 1 ? "s" : ""}
+              </p>
+
+              {importError && <p className="text-sm text-red-500 bg-red-50 px-4 py-2.5 rounded-xl mb-4">{importError}</p>}
+
+              <div className="space-y-4">
+                {reviewData.map((cat, ci) => (
+                  <div key={ci} className="rounded-2xl border overflow-hidden" style={{ borderColor: "var(--cream-dark)" }}>
+                    <div className="flex items-center gap-3 px-4 py-3" style={{ background: "var(--cream-dark)" }}>
+                      <input
+                        type="checkbox"
+                        checked={cat.products.every((p) => p.selected)}
+                        onChange={() => toggleCategory(ci)}
+                        className="w-4 h-4 accent-orange-500 flex-shrink-0"
+                      />
+                      <span className="font-semibold text-sm flex-1" style={{ color: "var(--text-dark)" }}>
+                        {cat.parsedName}
+                      </span>
+                      <select
+                        value={cat.mappedCategoryId}
+                        onChange={(e) => setMapping(ci, e.target.value)}
+                        className="text-xs px-2 py-1.5 rounded-lg border max-w-[180px]"
+                        style={{ borderColor: "var(--cream-dark)", background: "white" }}
+                      >
+                        <option value="__new__">+ Criar nova categoria</option>
+                        {categories.map((c) => (
+                          <option key={c.id} value={c.id}>{c.namePt}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      {cat.products.map((p, pi) => (
+                        <label
+                          key={pi}
+                          className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 border-t"
+                          style={{ borderColor: "var(--cream-dark)" }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={p.selected}
+                            onChange={() => toggleProduct(ci, pi)}
+                            className="w-4 h-4 accent-orange-500 flex-shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate" style={{ color: "var(--text-dark)" }}>{p.name}</div>
+                            {p.description && (
+                              <div className="text-xs truncate" style={{ color: "var(--text-muted)" }}>{p.description}</div>
+                            )}
+                          </div>
+                          {p.price != null && (
+                            <span className="text-sm font-semibold flex-shrink-0" style={{ color: "var(--orange)" }}>
+                              R$ {p.price.toFixed(2).replace(".", ",")}
+                            </span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={handleImport}
+                disabled={selectedCount === 0}
+                className="mt-6 w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-50"
+                style={{ background: "var(--orange)" }}
+              >
+                <Upload size={16} />
+                Importar {selectedCount} produto{selectedCount !== 1 ? "s" : ""}
+              </button>
+            </>
+          )}
+
+          {/* Importing step */}
+          {step === "importing" && (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+              <Loader2 size={40} className="animate-spin" style={{ color: "var(--orange)" }} />
+              <p className="font-semibold" style={{ color: "var(--text-dark)" }}>Importando produtos...</p>
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                {importProgress.done} de {importProgress.total}
+              </p>
+              <div className="w-full max-w-xs rounded-full h-2 overflow-hidden" style={{ background: "var(--cream-dark)" }}>
+                <div
+                  className="h-2 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${importProgress.total > 0 ? Math.round((importProgress.done / importProgress.total) * 100) : 0}%`,
+                    background: "var(--orange)",
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Done step */}
+          {step === "done" && (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: "var(--orange)" }}>
+                <Check size={32} className="text-white" />
+              </div>
+              <p className="font-semibold text-xl" style={{ color: "var(--text-dark)" }}>Importação concluída!</p>
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                {importProgress.total} produto{importProgress.total !== 1 ? "s" : ""} criado{importProgress.total !== 1 ? "s" : ""} com sucesso.
+              </p>
+              <div className="flex gap-3 mt-2">
+                <button
+                  onClick={() => { setStep("input"); setMenuText(""); setReviewData([]); }}
+                  className="px-5 py-2.5 rounded-xl border text-sm font-medium hover:bg-gray-50"
+                  style={{ borderColor: "var(--cream-dark)", color: "var(--text-muted)" }}
+                >
+                  Importar mais
+                </button>
+                <button
+                  onClick={() => router.push(`/${locale}/painel/${storeId}/produtos`)}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-90"
+                  style={{ background: "var(--orange)" }}
+                >
+                  Ver produtos
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ===== EXPORT ===== */}
+      {mainTab === "export" && (
+        <div className="space-y-3">
+          {products.length === 0 ? (
+            <p className="text-sm text-center py-12" style={{ color: "var(--text-muted)" }}>
+              Nenhum produto cadastrado para exportar.
+            </p>
+          ) : (
+            <>
+              <p className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+                {products.length} produto{products.length !== 1 ? "s" : ""} disponível{products.length !== 1 ? "is" : ""}.
+              </p>
+
+              <button
+                onClick={printMenu}
+                className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl border text-left transition-colors hover:bg-gray-50"
+                style={{ borderColor: "var(--cream-dark)" }}
+              >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "var(--cream-dark)" }}>
+                  <Printer size={20} style={{ color: "var(--text-dark)" }} />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm" style={{ color: "var(--text-dark)" }}>
+                    Versão para impressão
+                  </div>
+                  <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                    Abre o cardápio formatado — imprima ou salve como PDF
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={exportCSV}
+                className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl border text-left transition-colors hover:bg-gray-50"
+                style={{ borderColor: "var(--cream-dark)" }}
+              >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "var(--cream-dark)" }}>
+                  <FileSpreadsheet size={20} style={{ color: "var(--text-dark)" }} />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm" style={{ color: "var(--text-dark)" }}>
+                    Exportar dados (CSV)
+                  </div>
+                  <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                    Backup, migração para outro sistema ou edição no Excel / Google Sheets
+                  </div>
+                </div>
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

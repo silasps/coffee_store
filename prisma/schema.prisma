@@ -31,9 +31,13 @@ enum PlanStatus {
 }
 
 enum ProductArea {
-  FOODS
   HOT_DRINKS
   COLD_DRINKS
+  FOODS
+  DESSERTS
+  SNACKS
+  COMBOS
+  CANDY_SHOP
 }
 
 enum ProductTag {
