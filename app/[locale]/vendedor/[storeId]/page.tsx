@@ -55,6 +55,7 @@ export default async function SellerPage({ params }: Props) {
       prepMinutes: true,
       isAvailable: true,
       tags: true,
+      comboItems: true,
     },
   });
 
@@ -74,10 +75,12 @@ export default async function SellerPage({ params }: Props) {
     basePrice: p.basePrice ? Number(p.basePrice) : null,
     stockQuantity: p.stockQuantity,
     tags: p.tags as string[],
+    comboItems: p.comboItems ?? null,
   }));
 
   return (
     <MenuBrowser
+      popularProductIds={[]}
       store={{
         slug: store.slug,
         namePt: store.namePt,
