@@ -52,7 +52,7 @@ export default function AppleIcon() {
              * Handle: outer arc (white pill) + inner cutout (bg color)
              * both positioned absolutely inside a relative container
              */}
-            <div style={{ position: "relative", width: 32, height: 66 }}>
+            <div style={{ position: "relative", display: "flex", width: 32, height: 66 }}>
               {/* Outer arc */}
               <div
                 style={{
