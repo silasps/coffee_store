@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description: "Cardápio digital para cafeterias",
   manifest: "/manifest.webmanifest",
   icons: {
-    apple: "/apple-icon",
+    apple: [{ url: "/apple-icon", sizes: "180x180", type: "image/png" }],
     icon: "/icon.svg",
   },
   other: {
