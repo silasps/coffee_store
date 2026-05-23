@@ -1,6 +1,5 @@
 import { getUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { redirect } from "next/navigation";
 import { AcceptInviteClient } from "@/components/admin/accept-invite-client";
 
 type Props = {
@@ -28,16 +27,15 @@ export default async function ConvitePage({ params }: Props) {
   }
 
   const user = await getUser();
-  if (!user) {
-    redirect(`/${locale}/acesso?next=/${locale}/convite/${token}`);
-  }
 
-  const isOwner = await db.store.findFirst({
-    where: { id: invite.storeId, ownerId: user.id },
-    select: { id: true },
-  });
-  if (isOwner) {
-    return <InviteError title="Você já é o responsável desta loja" message="O dono da loja não precisa de convite para acessá-la." />;
+  if (user) {
+    const isOwner = await db.store.findFirst({
+      where: { id: invite.storeId, ownerId: user.id },
+      select: { id: true },
+    });
+    if (isOwner) {
+      return <InviteError title="Você já é o responsável desta loja" message="O dono da loja não precisa de convite para acessá-la." />;
+    }
   }
 
   const roleLabel = invite.role === "ADMIN" ? "Administrador" : "Vendedor";
@@ -48,9 +46,7 @@ export default async function ConvitePage({ params }: Props) {
       locale={locale}
       storeName={invite.store.namePt}
       roleLabel={roleLabel}
-      initialName={user.name ?? ""}
-      initialPhone={user.phone ?? ""}
-      userEmail={user.email}
+      loggedInUser={user ? { name: user.name ?? "", phone: user.phone ?? "", email: user.email } : null}
     />
   );
 }

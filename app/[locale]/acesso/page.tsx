@@ -241,9 +241,9 @@ export default function LoginPage({ params }: Props) {
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace(`/${locale}/painel`);
+      if (session) router.replace(nextUrl);
     });
-  }, [locale, router]);
+  }, [nextUrl, router]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -280,7 +280,7 @@ export default function LoginPage({ params }: Props) {
       password,
       options: {
         data: { name, phone: phone ? `${dialCode}${phone.replace(/\D/g, "")}` : "" },
-        emailRedirectTo: `${window.location.origin}/${locale}/auth/callback?next=${encodeURIComponent(`/${locale}/painel`)}`,
+        emailRedirectTo: `${window.location.origin}/${locale}/auth/callback?next=${encodeURIComponent(nextUrl)}`,
       },
     });
     setLoading(false);
@@ -303,7 +303,7 @@ export default function LoginPage({ params }: Props) {
       type: "signup",
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/${locale}/auth/callback?next=${encodeURIComponent(`/${locale}/painel`)}`,
+        emailRedirectTo: `${window.location.origin}/${locale}/auth/callback?next=${encodeURIComponent(nextUrl)}`,
       },
     });
 

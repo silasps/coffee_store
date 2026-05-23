@@ -89,7 +89,11 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Membro não encontrado" }, { status: 404 });
   }
 
-  if (member.userId === user.id) {
+  const store = await db.store.findUnique({ where: { id: storeId }, select: { ownerId: true } });
+  const isStoreOwner = store?.ownerId === user.id;
+
+  // Owners can remove their own team entry (they keep access via owner relationship).
+  if (member.userId === user.id && !isStoreOwner) {
     return NextResponse.json({ error: "Não é possível remover o próprio usuário" }, { status: 400 });
   }
 

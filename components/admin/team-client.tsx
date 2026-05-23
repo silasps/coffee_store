@@ -161,6 +161,15 @@ export function TeamClient({ storeId, locale, members, pendingInvites, plan, cur
     setShowConfirmRemove(false);
   }
 
+  function openDeleteConfirm(m: Member) {
+    setEditMember(m);
+    setEditName(m.name);
+    setEditPhone(m.phone);
+    setEditRole(m.role);
+    setError(null);
+    setShowConfirmRemove(true);
+  }
+
   function closeEdit() {
     setEditMember(null);
     setError(null);
@@ -291,6 +300,14 @@ export function TeamClient({ storeId, locale, members, pendingInvites, plan, cur
                     style={{ color: "var(--text-muted)" }}
                   >
                     <Pencil size={14} />
+                  </button>
+                  <button
+                    onClick={() => openDeleteConfirm(m)}
+                    title="Remover membro"
+                    className="p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                    style={{ color: "#f87171" }}
+                  >
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>
@@ -441,16 +458,14 @@ export function TeamClient({ storeId, locale, members, pendingInvites, plan, cur
 
                 {/* Actions */}
                 <div className="flex gap-2 pt-1">
-                  {editMember.userId !== currentUserId && (
                     <button
-                      type="button"
-                      onClick={() => setShowConfirmRemove(true)}
-                      className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 border border-red-200 hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 size={14} />
-                      Remover
-                    </button>
-                  )}
+                    type="button"
+                    onClick={() => setShowConfirmRemove(true)}
+                    className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium text-red-500 border border-red-200 hover:bg-red-50 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                    Remover
+                  </button>
                   <button
                     type="submit"
                     disabled={savingEdit || !editName.trim()}
