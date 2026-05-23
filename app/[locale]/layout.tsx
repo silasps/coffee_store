@@ -8,9 +8,15 @@ import "../globals.css";
 export const metadata: Metadata = {
   title: "E-Coffee",
   description: "Cardápio digital para cafeterias",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    apple: "/apple-icon",
+    icon: "/icon.svg",
+  },
   other: {
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "black-translucent",
+    "apple-mobile-web-app-title": "E-Coffee",
     "mobile-web-app-capable": "yes",
   },
 };
