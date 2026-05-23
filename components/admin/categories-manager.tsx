@@ -46,7 +46,7 @@ type Category = {
 
 type Props = {
   storeId: string;
-  locale: string;
+  defaultLocale: string;
   categories: Category[];
 };
 
@@ -70,12 +70,12 @@ const EMPTY_FORM: FormState = {
   sortOrder: 0,
 };
 
-export function CategoriesManager({ storeId, categories: initial }: Props) {
+export function CategoriesManager({ storeId, defaultLocale, categories: initial }: Props) {
   const [categories, setCategories] = useState(initial);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [activeTab, setActiveTab] = useState("pt");
+  const [activeTab, setActiveTab] = useState(defaultLocale);
   const [saving, setSaving] = useState(false);
   const [translating, setTranslating] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +86,7 @@ export function CategoriesManager({ storeId, categories: initial }: Props) {
     setEditingId(null);
     setForm({ ...EMPTY_FORM, sortOrder: categories.length });
     setError(null);
-    setActiveTab("pt");
+    setActiveTab(defaultLocale);
     setShowCustomEmoji(false);
     setShowForm(true);
   }
@@ -103,7 +103,7 @@ export function CategoriesManager({ storeId, categories: initial }: Props) {
       sortOrder: cat.sortOrder,
     });
     setError(null);
-    setActiveTab("pt");
+    setActiveTab(defaultLocale);
     setShowCustomEmoji(cat.iconEmoji ? !PRESET_EMOJIS.includes(cat.iconEmoji) : false);
     setShowForm(true);
   }

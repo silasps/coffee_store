@@ -10,16 +10,19 @@ export default async function CategoriesPage({ params }: Props) {
   const { locale, storeId } = await params;
   await requireStoreAccess(storeId);
 
-  const categories = await db.category.findMany({
-    where: { storeId },
-    orderBy: { sortOrder: "asc" },
-    include: { _count: { select: { products: true } } },
-  });
+  const [store, categories] = await Promise.all([
+    db.store.findUnique({ where: { id: storeId }, select: { defaultLocale: true } }),
+    db.category.findMany({
+      where: { storeId },
+      orderBy: { sortOrder: "asc" },
+      include: { _count: { select: { products: true } } },
+    }),
+  ]);
 
   return (
     <CategoriesManager
       storeId={storeId}
-      locale={locale}
+      defaultLocale={store?.defaultLocale ?? "pt"}
       categories={categories.map((c) => ({
         id: c.id,
         namePt: c.namePt,

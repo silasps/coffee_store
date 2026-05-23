@@ -4,78 +4,84 @@ export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 
 export default function AppleIcon() {
+  const bg = "#E86A1A";
+
   return new ImageResponse(
     (
       <div
         style={{
           width: 180,
           height: 180,
-          background: "#E86A1A",
-          borderRadius: 40,
+          background: bg,
+          borderRadius: 38,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        {/* Cup assembly */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative" }}>
-          {/* Steam */}
-          <div style={{ display: "flex", gap: 10, marginBottom: 6 }}>
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                style={{
-                  width: 4,
-                  height: 18,
-                  background: "rgba(255,255,255,0.55)",
-                  borderRadius: 2,
-                  transform: i === 1 ? "skewX(-8deg)" : i === 0 ? "skewX(8deg)" : "skewX(-8deg)",
-                }}
-              />
-            ))}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+          }}
+        >
+          {/* Steam lines */}
+          <div style={{ display: "flex", marginLeft: 18, marginBottom: 8 }}>
+            <div style={{ width: 6, height: 22, background: "rgba(255,255,255,0.5)", borderRadius: 3, marginRight: 10 }} />
+            <div style={{ width: 6, height: 16, background: "rgba(255,255,255,0.5)", borderRadius: 3, marginTop: 6, marginRight: 10 }} />
+            <div style={{ width: 6, height: 22, background: "rgba(255,255,255,0.5)", borderRadius: 3 }} />
           </div>
+
           {/* Rim */}
-          <div
-            style={{
-              width: 88,
-              height: 14,
-              background: "white",
-              borderRadius: 7,
-            }}
-          />
-          {/* Body + handle row */}
-          <div style={{ display: "flex", alignItems: "center" }}>
+          <div style={{ width: 96, height: 14, background: "white", borderRadius: 7 }} />
+
+          {/* Body + handle */}
+          <div style={{ display: "flex", alignItems: "flex-start" }}>
             {/* Cup body */}
             <div
               style={{
-                width: 80,
-                height: 62,
+                width: 86,
+                height: 66,
                 background: "white",
-                borderRadius: "0 0 14px 14px",
+                borderRadius: "0 0 18px 18px",
               }}
             />
-            {/* Handle */}
-            <div
-              style={{
-                width: 20,
-                height: 36,
-                border: "11px solid white",
-                borderLeft: "none",
-                borderRadius: "0 18px 18px 0",
-                marginLeft: -2,
-              }}
-            />
+
+            {/*
+             * Handle: outer arc (white pill) + inner cutout (bg color)
+             * both positioned absolutely inside a relative container
+             */}
+            <div style={{ position: "relative", width: 32, height: 66 }}>
+              {/* Outer arc */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 10,
+                  left: 0,
+                  width: 32,
+                  height: 46,
+                  background: "white",
+                  borderRadius: "0 23px 23px 0",
+                }}
+              />
+              {/* Inner cutout — same color as background */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 22,
+                  left: 0,
+                  width: 20,
+                  height: 22,
+                  background: bg,
+                  borderRadius: "0 11px 11px 0",
+                }}
+              />
+            </div>
           </div>
+
           {/* Saucer */}
-          <div
-            style={{
-              width: 100,
-              height: 12,
-              background: "white",
-              borderRadius: 6,
-              marginTop: 6,
-            }}
-          />
+          <div style={{ width: 110, height: 12, background: "white", borderRadius: 6, marginTop: 7 }} />
         </div>
       </div>
     ),

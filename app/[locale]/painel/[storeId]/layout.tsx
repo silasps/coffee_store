@@ -15,7 +15,7 @@ export default async function StoreAdminLayout({ children, params }: Props) {
 
   const store = await db.store.findUnique({
     where: { id: storeId },
-    select: { id: true, namePt: true, slug: true },
+    select: { id: true, namePt: true, slug: true, defaultLocale: true },
   });
 
   if (!store) notFound();
@@ -23,6 +23,8 @@ export default async function StoreAdminLayout({ children, params }: Props) {
   return (
     <AdminShell
       storeId={storeId}
+      storeSlug={store.slug}
+      storeLocale={store.defaultLocale}
       storeName={store.namePt}
       locale={locale}
       userName={user.name ?? user.email}

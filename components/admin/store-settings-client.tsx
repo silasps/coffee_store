@@ -106,8 +106,8 @@ export function StoreSettingsClient({ store, isPaidPlan = false }: { store: Stor
   const [primaryColor, setPrimaryColor] = useState(store.primaryColor ?? "#3A1A00");
   const [accentColor, setAccentColor] = useState(store.accentColor ?? "#E86A1A");
   const [defaultLocale, setDefaultLocale] = useState(store.defaultLocale);
-  const [nameTab, setNameTab] = useState("pt");
-  const [sloganTab, setSloganTab] = useState("pt");
+  const [nameTab, setNameTab] = useState(store.defaultLocale);
+  const [sloganTab, setSloganTab] = useState(store.defaultLocale);
 
   // ── Marca state
   const [brandHeroImageUrl, setBrandHeroImageUrl] = useState(store.brandHeroImageUrl ?? "");
@@ -141,9 +141,9 @@ export function StoreSettingsClient({ store, isPaidPlan = false }: { store: Stor
   const [causeTextEs, setCauseTextEs] = useState(store.causeTextEs ?? "");
   const [causeDonationPix, setCauseDonationPix] = useState(store.causeDonationPix ?? "");
   const [causePaypalUrl, setCausePaypalUrl] = useState(store.causePaypalUrl ?? "");
-  const [aboutTab, setAboutTab] = useState("pt");
-  const [causeTab, setCauseTab] = useState("pt");
-  const [joinTab, setJoinTab] = useState("pt");
+  const [aboutTab, setAboutTab] = useState(store.defaultLocale);
+  const [causeTab, setCauseTab] = useState(store.defaultLocale);
+  const [joinTab, setJoinTab] = useState(store.defaultLocale);
 
   // ── UI state
   const [activeTab, setActiveTab] = useState<"loja" | "marca">("loja");
@@ -447,7 +447,7 @@ export function StoreSettingsClient({ store, isPaidPlan = false }: { store: Stor
       {activeTab === "marca" && (
         <div className="flex-1 overflow-hidden flex flex-col md:flex-row gap-0 min-h-0">
           {/* Form panel */}
-          <div className="w-full md:w-[380px] flex-shrink-0 overflow-y-auto px-4 py-5 space-y-5 border-r" style={{ borderColor: "var(--cream-dark)" }}>
+          <div className="w-full md:w-[380px] flex-1 md:flex-none min-h-0 overflow-y-auto px-4 py-5 space-y-5 border-r" style={{ borderColor: "var(--cream-dark)" }}>
             {/* Hero image */}
             <Section title="Imagem de capa">
               <p className="text-xs" style={{ color: "var(--text-muted)" }}>Aparece como fundo da seção principal. Após selecionar, ajuste o enquadramento.</p>

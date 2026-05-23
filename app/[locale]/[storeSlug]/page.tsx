@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { MenuBrowser } from "@/components/menu/menu-browser";
 import type { Metadata } from "next";
@@ -32,6 +32,13 @@ export default async function MenuPage({ params }: Props) {
   });
 
   if (!store) notFound();
+
+  // Redirect to the store's configured default language when accessed via the
+  // app-level fallback locale ("pt"). Keeps locale-switcher links working since
+  // they produce explicit locale URLs that won't match this condition.
+  if (locale === "pt" && store.defaultLocale !== "pt") {
+    redirect(`/${store.defaultLocale}/${storeSlug}`);
+  }
 
   const categories = await db.category.findMany({
     where: { storeId: store.id, isActive: true },
