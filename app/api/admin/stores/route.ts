@@ -18,8 +18,22 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const dbUser = await db.user.findUnique({ where: { authId: user.id } });
+  const dbUser = await db.user.findUnique({
+    where: { authId: user.id },
+    include: { subscription: { include: { plan: true } } },
+  });
   if (!dbUser) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const maxStores = dbUser.subscription?.plan.maxStores ?? 1;
+  if (maxStores !== -1) {
+    const storeCount = await db.store.count({ where: { ownerId: dbUser.id } });
+    if (storeCount >= maxStores) {
+      return NextResponse.json(
+        { error: `Limite de lojas atingido para o seu plano (${maxStores}). Faça upgrade para criar mais.` },
+        { status: 403 }
+      );
+    }
+  }
 
   const body = await req.json();
   const { namePt, slug: rawSlug } = body;

@@ -27,6 +27,9 @@ type PaymentOption = {
   descKey: "pixDesc" | "cardDesc" | "payLinkDesc" | "counterDesc";
 };
 
+// TODO: set PAYMENTS_ENABLED = true when ready to re-enable online payment methods
+const PAYMENTS_ENABLED = false;
+
 const PAYMENT_OPTIONS: PaymentOption[] = [
   { id: "PIX", icon: <QrCode size={20} />, labelKey: "pix", descKey: "pixDesc" },
   { id: "CARD_ONLINE", icon: <CreditCard size={20} />, labelKey: "card", descKey: "cardDesc" },
@@ -62,7 +65,7 @@ export function CheckoutClient({ store, locale }: Props) {
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { paymentMethod: "PIX" },
+    defaultValues: { paymentMethod: PAYMENTS_ENABLED ? "PIX" : "PAY_AT_COUNTER" },
   });
 
   const selectedPayment = watch("paymentMethod");
@@ -170,41 +173,56 @@ export function CheckoutClient({ store, locale }: Props) {
           </div>
 
           {/* Payment method */}
-          <div>
-            <label className="block text-sm font-semibold text-text-dark mb-2">
-              {t("payment")}
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {PAYMENT_OPTIONS.map((opt) => {
-                const isSelected = selectedPayment === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setValue("paymentMethod", opt.id)}
-                    className="flex flex-col items-start gap-1 p-3 rounded-xl border transition-all text-left"
-                    style={{
-                      borderColor: isSelected ? "var(--orange)" : "var(--cream-dark)",
-                      background: isSelected ? "rgba(232,106,26,0.08)" : "white",
-                    }}
-                  >
-                    <span style={{ color: isSelected ? "var(--orange)" : "var(--text-muted)" }}>
-                      {opt.icon}
-                    </span>
-                    <span
-                      className="text-sm font-semibold"
-                      style={{ color: isSelected ? "var(--orange)" : "var(--text-dark)" }}
+          {PAYMENTS_ENABLED ? (
+            <div>
+              <label className="block text-sm font-semibold text-text-dark mb-2">
+                {t("payment")}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {PAYMENT_OPTIONS.map((opt) => {
+                  const isSelected = selectedPayment === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setValue("paymentMethod", opt.id)}
+                      className="flex flex-col items-start gap-1 p-3 rounded-xl border transition-all text-left"
+                      style={{
+                        borderColor: isSelected ? "var(--orange)" : "var(--cream-dark)",
+                        background: isSelected ? "rgba(232,106,26,0.08)" : "white",
+                      }}
                     >
-                      {t(opt.labelKey)}
-                    </span>
-                    <span className="text-xs text-text-muted leading-tight">
-                      {t(opt.descKey)}
-                    </span>
-                  </button>
-                );
-              })}
+                      <span style={{ color: isSelected ? "var(--orange)" : "var(--text-muted)" }}>
+                        {opt.icon}
+                      </span>
+                      <span
+                        className="text-sm font-semibold"
+                        style={{ color: isSelected ? "var(--orange)" : "var(--text-dark)" }}
+                      >
+                        {t(opt.labelKey)}
+                      </span>
+                      <span className="text-xs text-text-muted leading-tight">
+                        {t(opt.descKey)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div
+              className="flex items-center gap-3 p-3 rounded-xl border"
+              style={{ borderColor: "var(--cream-dark)", background: "white" }}
+            >
+              <Store size={20} style={{ color: "var(--orange)" }} />
+              <div>
+                <p className="text-sm font-semibold" style={{ color: "var(--text-dark)" }}>
+                  {t("counter")}
+                </p>
+                <p className="text-xs text-text-muted">{t("counterDesc")}</p>
+              </div>
+            </div>
+          )}
 
           {/* Order summary */}
           <div

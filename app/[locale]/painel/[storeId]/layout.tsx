@@ -11,7 +11,7 @@ type Props = {
 export default async function StoreAdminLayout({ children, params }: Props) {
   const { locale, storeId } = await params;
 
-  const { user } = await requireStoreAccess(storeId, locale);
+  const { user, role } = await requireStoreAccess(storeId, locale);
 
   const store = await db.store.findUnique({
     where: { id: storeId },
@@ -28,6 +28,7 @@ export default async function StoreAdminLayout({ children, params }: Props) {
       storeName={store.namePt}
       locale={locale}
       userName={user.name ?? user.email}
+      userRole={role}
     >
       {children}
     </AdminShell>

@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   MoreHorizontal,
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -36,9 +37,10 @@ type Props = {
   storeName: string;
   locale: string;
   userName: string;
+  userRole: string;
 };
 
-export function AdminShell({ children, storeId, storeSlug, storeLocale, storeName, locale, userName }: Props) {
+export function AdminShell({ children, storeId, storeSlug, storeLocale, storeName, locale, userName, userRole }: Props) {
   const t = useTranslations("admin");
   const pathname = usePathname();
   const router = useRouter();
@@ -58,17 +60,25 @@ export function AdminShell({ children, storeId, storeSlug, storeLocale, storeNam
   const base = `/${locale}/painel/${storeId}`;
   const label = t as unknown as (key: string) => string;
 
+  const isOwner = userRole === "STORE_OWNER" || userRole === "SUPER_ADMIN";
+  const isSeller = userRole === "SELLER";
+
+  // Nav items filtered by role:
+  // SELLER        → Dashboard + Pedidos
+  // ADMIN         → Dashboard + Produtos + Categorias + Pedidos + Financeiro + Importar
+  // OWNER/SUPER   → everything
   const allNav: NavItem[] = [
     { icon: <LayoutDashboard size={20} />, label: label("dashboard"), href: base },
-    { icon: <Package size={20} />, label: label("products"), href: `${base}/produtos` },
-    { icon: <Tag size={20} />, label: label("categories"), href: `${base}/categorias` },
+    ...(!isSeller ? [{ icon: <Package size={20} />, label: label("products"), href: `${base}/produtos` }] : []),
+    ...(!isSeller ? [{ icon: <Tag size={20} />, label: label("categories"), href: `${base}/categorias` }] : []),
     { icon: <ShoppingBag size={20} />, label: label("orders"), href: `${base}/pedidos` },
-    { icon: <DollarSign size={20} />, label: label("finance"), href: `${base}/financeiro` },
-    { icon: <Upload size={20} />, label: label("import"), href: `${base}/importar` },
-    { icon: <Settings size={20} />, label: label("settings"), href: `${base}/configuracoes` },
+    ...(!isSeller ? [{ icon: <DollarSign size={20} />, label: label("finance"), href: `${base}/financeiro` }] : []),
+    ...(!isSeller ? [{ icon: <Upload size={20} />, label: label("import"), href: `${base}/importar` }] : []),
+    ...(isOwner ? [{ icon: <Settings size={20} />, label: label("settings"), href: `${base}/configuracoes` }] : []),
+    ...(isOwner ? [{ icon: <Users size={20} />, label: "Equipe", href: `${base}/equipe` }] : []),
   ];
 
-  // Bottom nav: 4 primary + "Mais" button
+  // Bottom nav: up to 4 primary + "Mais" button (only when there are secondary items)
   const primaryNav = allNav.slice(0, 4);
   const secondaryNav = allNav.slice(4);
 
@@ -113,7 +123,7 @@ export function AdminShell({ children, storeId, storeSlug, storeLocale, storeNam
           )}
         </div>
 
-        {sidebarOpen && (
+        {sidebarOpen && isOwner && (
           <Link
             href={`/${locale}/painel`}
             onClick={() => setSidebarOpen(false)}
@@ -194,14 +204,16 @@ export function AdminShell({ children, storeId, storeSlug, storeLocale, storeNam
           </Link>
         ))}
 
-        {/* Mais button */}
-        <button
-          onClick={() => setMoreOpen((v) => !v)}
-          className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium text-cream/60 transition-colors"
-        >
-          <MoreHorizontal size={20} />
-          <span>Mais</span>
-        </button>
+        {/* Mais button — only when there are secondary nav items */}
+        {secondaryNav.length > 0 && (
+          <button
+            onClick={() => setMoreOpen((v) => !v)}
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium text-cream/60 transition-colors"
+          >
+            <MoreHorizontal size={20} />
+            <span>Mais</span>
+          </button>
+        )}
       </nav>
 
       {/* ── MOBILE "MAIS" DRAWER ────────────────────────────────── */}
@@ -245,14 +257,16 @@ export function AdminShell({ children, storeId, storeSlug, storeLocale, storeNam
                 <span>Ver loja</span>
               </Link>
 
-              <Link
-                href={`/${locale}/painel`}
-                onClick={() => setMoreOpen(false)}
-                className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-cream/70 transition-all"
-              >
-                <ChevronLeft size={20} />
-                <span>{t("stores")}</span>
-              </Link>
+              {isOwner && (
+                <Link
+                  href={`/${locale}/painel`}
+                  onClick={() => setMoreOpen(false)}
+                  className="flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-cream/70 transition-all"
+                >
+                  <ChevronLeft size={20} />
+                  <span>{t("stores")}</span>
+                </Link>
+              )}
             </div>
 
             {/* User + logout */}

@@ -8,11 +8,13 @@ async function main() {
   // Plans
   await db.plan.upsert({
     where: { id: "plan-starter" },
-    update: {},
+    update: { maxAdmins: 1, maxSellers: 2 },
     create: {
       id: "plan-starter",
       name: "Starter",
       maxStores: 1,
+      maxAdmins: 1,
+      maxSellers: 2,
       priceMonthly: 49,
       sortOrder: 0,
     },
@@ -20,11 +22,13 @@ async function main() {
 
   await db.plan.upsert({
     where: { id: "plan-pro" },
-    update: {},
+    update: { maxAdmins: 2, maxSellers: 5 },
     create: {
       id: "plan-pro",
       name: "Pro",
       maxStores: 3,
+      maxAdmins: 2,
+      maxSellers: 5,
       priceMonthly: 99,
       sortOrder: 1,
     },
@@ -32,11 +36,13 @@ async function main() {
 
   await db.plan.upsert({
     where: { id: "plan-business" },
-    update: {},
+    update: { maxAdmins: -1, maxSellers: -1 },
     create: {
       id: "plan-business",
       name: "Business",
       maxStores: -1,
+      maxAdmins: -1,
+      maxSellers: -1,
       priceMonthly: 199,
       sortOrder: 2,
     },

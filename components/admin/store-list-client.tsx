@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Store, Package, ShoppingBag, ExternalLink, Settings } from "lucide-react";
+import { Plus, Store, Package, ShoppingBag, ExternalLink, Settings, Info } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
@@ -181,12 +181,24 @@ export function StoreListClient({ stores, locale, isSuperAdmin, userName }: Prop
                     Gerenciar
                   </Link>
                   <a
+                    href={`/${locale}/${store.slug}/sobre`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Ver página Sobre de ${store.namePt}`}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition-colors hover:bg-cream-dark"
+                    style={{ borderColor: "var(--cream-dark)", color: "var(--text-muted)" }}
+                    title="Página Sobre"
+                  >
+                    <Info size={14} />
+                  </a>
+                  <a
                     href={`/${locale}/${store.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`Abrir ${store.namePt} em nova aba`}
                     className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border transition-colors hover:bg-cream-dark"
                     style={{ borderColor: "var(--cream-dark)", color: "var(--text-muted)" }}
+                    title="Cardápio público"
                   >
                     <ExternalLink size={14} />
                   </a>

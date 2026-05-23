@@ -58,6 +58,13 @@ body {
   border-radius: 2px;
 }
 
+/* Prevent iOS auto-zoom on input focus (triggered when font-size < 16px) */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* Hide scrollbar on category sidebar on mobile */
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
@@ -65,4 +72,65 @@ body {
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* ── View Transitions ─────────────────────────────────── */
+
+/* Shared image morph: slow enough to register, fast enough to feel direct */
+::view-transition-group(.morph) {
+  animation-duration: 380ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+::view-transition-image-pair(.morph) {
+  animation-name: vt-via-blur;
+}
+@keyframes vt-via-blur {
+  35% { filter: blur(4px); }
+}
+
+/* Directional slides for forward navigation (card → detail) */
+::view-transition-old(.nav-forward) {
+  --vt-slide: -40px;
+  animation:
+    140ms ease-in both vt-fade reverse,
+    380ms cubic-bezier(0.4, 0, 0.2, 1) both vt-slide reverse;
+}
+::view-transition-new(.nav-forward) {
+  --vt-slide: 40px;
+  animation:
+    200ms ease-out 140ms both vt-fade,
+    380ms cubic-bezier(0.4, 0, 0.2, 1) both vt-slide;
+}
+
+/* Directional slides for back navigation (detail → card) */
+::view-transition-old(.nav-back) {
+  --vt-slide: 40px;
+  animation:
+    140ms ease-in both vt-fade reverse,
+    380ms cubic-bezier(0.4, 0, 0.2, 1) both vt-slide reverse;
+}
+::view-transition-new(.nav-back) {
+  --vt-slide: -40px;
+  animation:
+    200ms ease-out 140ms both vt-fade,
+    380ms cubic-bezier(0.4, 0, 0.2, 1) both vt-slide;
+}
+
+@keyframes vt-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes vt-slide {
+  from { translate: var(--vt-slide); }
+  to   { translate: 0; }
+}
+
+/* Respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
 }

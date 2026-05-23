@@ -124,6 +124,8 @@ model Plan {
   id           String  @id @default(cuid())
   name         String
   maxStores    Int
+  maxAdmins    Int     @default(1)
+  maxSellers   Int     @default(2)
   priceMonthly Decimal @db.Decimal(10, 2)
   mpPlanId     String?
   isActive     Boolean @default(true)

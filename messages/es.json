@@ -18,7 +18,10 @@
     "outOfStock": "No disponible",
     "prep": "{min} min",
     "search": "Buscar productos...",
-    "empty": "No se encontraron productos"
+    "empty": "No se encontraron productos",
+    "back": "Volver",
+    "comboIncludes": "El combo incluye",
+    "savings": "Ahorras"
   },
   "cart": {
     "title": "Mi Pedido",

@@ -18,7 +18,10 @@
     "outOfStock": "Unavailable",
     "prep": "{min} min",
     "search": "Search products...",
-    "empty": "No products found"
+    "empty": "No products found",
+    "back": "Back",
+    "comboIncludes": "Combo includes",
+    "savings": "You save"
   },
   "cart": {
     "title": "My Order",

@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Save, Loader2, Upload, X, Camera, Heart, Users, Eye, EyeOff, Sparkles } from "lucide-react";
+import { Save, Loader2, Upload, X, Camera, Heart, Users, Eye, EyeOff, Sparkles, MonitorSmartphone } from "lucide-react";
 import { BrandPageContent, type BrandStore } from "@/components/menu/brand-page-content";
 import { ImagePicker } from "@/components/admin/image-picker";
 
@@ -151,6 +151,7 @@ export function StoreSettingsClient({ store, isPaidPlan = false }: { store: Stor
   const [translating, setTranslating] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [showMobilePreview, setShowMobilePreview] = useState(false);
 
   function getByLang(lang: string, pt: string, en: string, es: string) {
     return lang === "pt" ? pt : lang === "en" ? en : es;
@@ -443,6 +444,29 @@ export function StoreSettingsClient({ store, isPaidPlan = false }: { store: Stor
         </div>
       )}
 
+      {/* ── Mobile preview overlay ── */}
+      {showMobilePreview && (
+        <div className="fixed inset-0 z-50 flex flex-col md:hidden" style={{ background: "var(--cream)" }}>
+          <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b" style={{ background: "var(--cream-dark)", borderColor: "var(--cream-dark)" }}>
+            <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+              <span className="w-2 h-2 rounded-full bg-green-400 inline-block" /> Preview — página pública
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMobilePreview(false)}
+              className="flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-black/10"
+              style={{ color: "var(--text-muted)" }}
+              aria-label="Fechar preview"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <BrandPageContent store={previewStore} locale="pt" isPreview />
+          </div>
+        </div>
+      )}
+
       {/* ── Marca tab ── */}
       {activeTab === "marca" && (
         <div className="flex-1 overflow-hidden flex flex-col md:flex-row gap-0 min-h-0">
@@ -622,6 +646,14 @@ export function StoreSettingsClient({ store, isPaidPlan = false }: { store: Stor
 
             {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{error}</p>}
             {success && <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">Configurações salvas!</p>}
+            <button
+              type="button"
+              onClick={() => setShowMobilePreview(true)}
+              className="md:hidden w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold border transition-colors hover:bg-cream-dark"
+              style={{ borderColor: "var(--orange)", color: "var(--orange)" }}
+            >
+              <MonitorSmartphone size={16} /> Ver preview da página
+            </button>
             <button type="submit" disabled={saving}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-white transition-opacity disabled:opacity-60"
               style={{ background: "var(--orange)" }}
