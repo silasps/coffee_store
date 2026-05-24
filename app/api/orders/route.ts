@@ -7,10 +7,10 @@ import { nanoid } from "nanoid";
 const schema = z.object({
   storeId: z.string(),
   storeSlug: z.string(),
-  customerName: z.string().min(2),
+  customerName: z.string().min(1),
   tableLabel: z.string().optional(),
   notes: z.string().optional(),
-  paymentMethod: z.enum(["PIX", "CARD_ONLINE", "PAY_LINK", "PAY_AT_COUNTER"]),
+  paymentMethod: z.enum(["PIX", "CARD_ONLINE", "PAY_LINK", "PAY_AT_COUNTER", "CASH_AT_COUNTER", "CARD_AT_COUNTER"]),
   channel: z.enum(["TOTEM", "TABLE", "COUNTER"]).default("TOTEM"),
   items: z.array(
     z.object({
@@ -41,32 +41,59 @@ export async function POST(req: NextRequest) {
 
     const displayCode = generateCode();
 
-    const order = await db.order.create({
-      data: {
-        storeId: data.storeId,
-        displayCode,
-        customerName: data.customerName,
-        tableLabel: data.tableLabel,
-        notes: data.notes,
-        channel: data.channel,
-        status: "AWAITING_PAYMENT",
-        paymentMethod: data.paymentMethod,
-        paymentStatus: "PENDING",
-        subtotal: data.subtotal,
-        total: data.total,
-        items: {
-          create: data.items.map((item) => ({
-            productId: item.productId,
-            productSlug: item.productSlug,
-            productNamePt: item.productNamePt,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.totalPrice,
-            notes: item.notes,
-          })),
-        },
+    const isCounterPresential =
+      data.channel === "COUNTER" &&
+      (data.paymentMethod === "CASH_AT_COUNTER" || data.paymentMethod === "CARD_AT_COUNTER");
+
+    const now = new Date();
+
+    const orderData = {
+      storeId: data.storeId,
+      displayCode,
+      customerName: data.customerName,
+      tableLabel: data.tableLabel,
+      notes: data.notes,
+      channel: data.channel,
+      status: isCounterPresential ? ("IN_QUEUE" as const) : ("AWAITING_PAYMENT" as const),
+      paymentMethod: data.paymentMethod,
+      paymentStatus: isCounterPresential ? ("PAID" as const) : ("PENDING" as const),
+      paidAt: isCounterPresential ? now : null,
+      subtotal: data.subtotal,
+      total: data.total,
+      items: {
+        create: data.items.map((item) => ({
+          productId: item.productId,
+          productSlug: item.productSlug,
+          productNamePt: item.productNamePt,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice,
+          notes: item.notes,
+        })),
       },
-    });
+    };
+
+    let order: Awaited<ReturnType<typeof db.order.create>>;
+
+    if (isCounterPresential) {
+      const result = await db.$transaction(async (tx) => {
+        const created = await tx.order.create({ data: orderData });
+        await tx.financeEntry.create({
+          data: {
+            storeId: data.storeId,
+            orderId: created.id,
+            direction: "INCOME",
+            category: "SALE",
+            description: `Pedido ${displayCode}`,
+            amount: data.total,
+          },
+        });
+        return created;
+      });
+      order = result;
+    } else {
+      order = await db.order.create({ data: orderData });
+    }
 
     let pixQrCode: string | null = null;
     let pixCopyPaste: string | null = null;

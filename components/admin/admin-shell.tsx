@@ -18,6 +18,7 @@ import {
   X,
   MoreHorizontal,
   Users,
+  CreditCard,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -69,6 +70,7 @@ export function AdminShell({ children, storeId, storeSlug, storeLocale, storeNam
   // OWNER/SUPER   → everything
   const allNav: NavItem[] = [
     { icon: <LayoutDashboard size={20} />, label: label("dashboard"), href: base },
+    { icon: <CreditCard size={20} />, label: "Venda", href: `${base}/venda` },
     ...(!isSeller ? [{ icon: <Package size={20} />, label: label("products"), href: `${base}/produtos` }] : []),
     ...(!isSeller ? [{ icon: <Tag size={20} />, label: label("categories"), href: `${base}/categorias` }] : []),
     { icon: <ShoppingBag size={20} />, label: label("orders"), href: `${base}/pedidos` },
