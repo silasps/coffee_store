@@ -10,7 +10,7 @@ export default async function ImportPage({ params }: Props) {
   const { locale, storeId } = await params;
   const { user } = await requireStoreAccess(storeId);
 
-  const [categories, rawProducts, subscription] = await Promise.all([
+  const [categories, rawProducts, subscription, store] = await Promise.all([
     db.category.findMany({
       where: { storeId, isActive: true },
       orderBy: { sortOrder: "asc" },
@@ -22,11 +22,24 @@ export default async function ImportPage({ params }: Props) {
       select: {
         id: true, namePt: true, descriptionPt: true, highlightPt: true,
         basePrice: true, isAvailable: true, categoryId: true, tags: true,
+        imageUrl: true,
       },
     }),
     db.subscription.findUnique({
       where: { userId: user.id },
       select: { status: true },
+    }),
+    db.store.findUnique({
+      where: { id: storeId },
+      select: {
+        namePt: true, sloganPt: true, logoUrl: true,
+        primaryColor: true, accentColor: true,
+        brandHeroImageUrl: true, brandAboutImageUrl: true,
+        brandAboutTitlePt: true, brandAboutTextPt: true,
+        causeTitlePt: true, causeTextPt: true, brandCauseVisible: true,
+        brandJoinTitlePt: true, brandJoinTextPt: true,
+        brandJoinCtaLabel: true, brandJoinCtaUrl: true, brandJoinVisible: true,
+      },
     }),
   ]);
 
@@ -41,6 +54,7 @@ export default async function ImportPage({ params }: Props) {
     isAvailable: p.isAvailable,
     categoryId: p.categoryId,
     tags: p.tags as string[],
+    imageUrl: p.imageUrl,
   }));
 
   return (
@@ -50,6 +64,7 @@ export default async function ImportPage({ params }: Props) {
       categories={categories}
       products={products}
       isPaidPlan={isPaidPlan}
+      store={store ?? { namePt: "", sloganPt: null, logoUrl: null, primaryColor: null, accentColor: null, brandHeroImageUrl: null, brandAboutImageUrl: null, brandAboutTitlePt: null, brandAboutTextPt: null, causeTitlePt: null, causeTextPt: null, brandCauseVisible: false, brandJoinTitlePt: null, brandJoinTextPt: null, brandJoinCtaLabel: null, brandJoinCtaUrl: null, brandJoinVisible: false }}
     />
   );
 }

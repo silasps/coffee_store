@@ -9,6 +9,26 @@ import {
 
 type Category = { id: string; namePt: string };
 
+type StoreInfo = {
+  namePt: string;
+  sloganPt: string | null;
+  logoUrl: string | null;
+  primaryColor: string | null;
+  accentColor: string | null;
+  brandHeroImageUrl: string | null;
+  brandAboutImageUrl: string | null;
+  brandAboutTitlePt: string | null;
+  brandAboutTextPt: string | null;
+  causeTitlePt: string | null;
+  causeTextPt: string | null;
+  brandCauseVisible: boolean;
+  brandJoinTitlePt: string | null;
+  brandJoinTextPt: string | null;
+  brandJoinCtaLabel: string | null;
+  brandJoinCtaUrl: string | null;
+  brandJoinVisible: boolean;
+};
+
 type Product = {
   id: string;
   namePt: string;
@@ -18,6 +38,7 @@ type Product = {
   isAvailable: boolean;
   categoryId: string;
   tags: string[];
+  imageUrl: string | null;
 };
 
 type ParsedProduct = {
@@ -40,6 +61,7 @@ type Props = {
   categories: Category[];
   products: Product[];
   isPaidPlan: boolean;
+  store: StoreInfo;
 };
 
 const CSV_HEADER = "categoria;nome;descricao;destaque;preco;disponivel;tags";
@@ -73,7 +95,7 @@ function downloadBlob(content: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export function ImportManager({ storeId, locale, categories, products, isPaidPlan }: Props) {
+export function ImportManager({ storeId, locale, categories, products, isPaidPlan, store }: Props) {
   const router = useRouter();
   const [mainTab, setMainTab] = useState<"import" | "export">("import");
   const [importMode, setImportMode] = useState<"ai" | "csv">(isPaidPlan ? "ai" : "csv");
@@ -303,28 +325,147 @@ export function ImportManager({ storeId, locale, categories, products, isPaidPla
       .map((cat) => ({ ...cat, items: products.filter((p) => p.categoryId === cat.id && p.isAvailable) }))
       .filter((c) => c.items.length > 0);
 
+    const primary = store.primaryColor || "#3A1A00";
+    const accent = store.accentColor || "#E86A1A";
+    const storeName = store.namePt || "Cardápio";
+    const slogan = store.sloganPt || "";
+    const logo = store.logoUrl || "";
+    const hero = store.brandHeroImageUrl || "";
+    const dateStr = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+
+    const fmt = (price: number) => `R$ ${price.toFixed(2).replace(".", ",")}`;
+
+    function renderCategory(cat: typeof grouped[0], idx: number) {
+      const img = cat.items.find((p) => p.imageUrl);
+      const layout = img ? (idx % 2 === 0 ? "right" : "left") : "none";
+
+      const headerHtml = `
+        <div style="background:${primary};color:#fff;border-radius:10px 10px 0 0;padding:14px 20px;">
+          <div style="font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">${cat.namePt}</div>
+          <div style="width:40px;height:2px;background:${accent};margin-top:5px;border-radius:2px;"></div>
+        </div>`;
+
+      const productList = cat.items.map((item) => `
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px 0;border-bottom:1px dotted #e0d8d0;gap:12px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;font-weight:700;color:#1a1a1a;">${item.namePt}</div>
+            ${item.descriptionPt ? `<div style="font-size:12px;color:#888;margin-top:3px;line-height:1.4;">${item.descriptionPt}</div>` : ""}
+          </div>
+          ${item.basePrice != null ? `<div style="font-size:14px;font-weight:800;color:${accent};white-space:nowrap;flex-shrink:0;">${fmt(item.basePrice)}</div>` : ""}
+        </div>`).join("");
+
+      let bodyHtml = "";
+      if (layout === "none") {
+        bodyHtml = `<div style="padding:4px 20px 16px;">${productList}</div>`;
+      } else if (layout === "right") {
+        bodyHtml = `
+          <div style="display:flex;gap:20px;padding:12px 20px 16px;align-items:flex-start;">
+            <div style="flex:1;min-width:0;">${productList}</div>
+            <div style="flex:1;flex-shrink:0;">
+              <img src="${img!.imageUrl}" style="width:100%;height:220px;object-fit:cover;border-radius:10px;display:block;" />
+            </div>
+          </div>`;
+      } else if (layout === "left") {
+        bodyHtml = `
+          <div style="display:flex;gap:20px;padding:12px 20px 16px;align-items:flex-start;">
+            <div style="flex:1;flex-shrink:0;">
+              <img src="${img!.imageUrl}" style="width:100%;height:220px;object-fit:cover;border-radius:10px;display:block;" />
+            </div>
+            <div style="flex:1;min-width:0;">${productList}</div>
+          </div>`;
+      }
+
+      return `
+        <div style="border:1px solid #e8e0d8;border-radius:12px;margin-bottom:28px;overflow:hidden;page-break-inside:avoid;">
+          ${headerHtml}${bodyHtml}
+        </div>`;
+    }
+
+    const hasCause = store.brandCauseVisible && !!(store.causeTitlePt || store.causeTextPt);
+    const hasJoin = store.brandJoinVisible && !!(store.brandJoinTitlePt || store.brandJoinTextPt);
+    const hasAbout = !!(store.brandAboutTextPt || store.brandAboutTitlePt || hasCause || hasJoin);
+
+    const divider = `<div style="border-top:1px solid #e8e0d8;margin:32px 0;"></div>`;
+
+    const aboutSection = hasAbout ? `
+      <div style="page-break-before:always;padding:48px 0;display:flex;flex-direction:column;align-items:center;text-align:center;">
+        ${store.brandAboutImageUrl ? `<img src="${store.brandAboutImageUrl}" style="width:100%;max-height:260px;object-fit:cover;border-radius:16px;margin-bottom:32px;" />` : ""}
+        ${store.brandAboutTitlePt || store.brandAboutTextPt ? `
+          <div style="width:50px;height:4px;background:${accent};border-radius:2px;margin-bottom:20px;"></div>
+          <div style="font-size:22px;font-weight:800;color:${primary};margin-bottom:16px;letter-spacing:1px;">${store.brandAboutTitlePt || "Nossa História"}</div>
+          ${store.brandAboutTextPt ? `<p style="font-size:15px;line-height:1.7;color:#555;max-width:520px;margin:0 auto;">${store.brandAboutTextPt}</p>` : ""}
+        ` : ""}
+        ${hasCause ? `
+          ${divider}
+          <div style="width:50px;height:4px;background:${accent};border-radius:2px;margin-bottom:20px;"></div>
+          <div style="font-size:20px;font-weight:800;color:${primary};margin-bottom:12px;letter-spacing:1px;">${store.causeTitlePt || "Nossa Causa"}</div>
+          ${store.causeTextPt ? `<p style="font-size:14px;line-height:1.7;color:#555;max-width:520px;margin:0 auto;">${store.causeTextPt}</p>` : ""}
+        ` : ""}
+        ${hasJoin ? `
+          ${divider}
+          <div style="width:50px;height:4px;background:${accent};border-radius:2px;margin-bottom:20px;"></div>
+          <div style="font-size:20px;font-weight:800;color:${primary};margin-bottom:12px;letter-spacing:1px;">${store.brandJoinTitlePt || "Faça Parte"}</div>
+          ${store.brandJoinTextPt ? `<p style="font-size:14px;line-height:1.7;color:#555;max-width:520px;margin:0 auto;">${store.brandJoinTextPt}</p>` : ""}
+          ${store.brandJoinCtaLabel ? `<div style="margin-top:20px;display:inline-block;padding:10px 28px;background:${accent};color:#fff;border-radius:100px;font-size:13px;font-weight:700;letter-spacing:1px;">${store.brandJoinCtaLabel}</div>` : ""}
+        ` : ""}
+        <div style="margin-top:40px;font-size:12px;color:${primary};font-weight:700;letter-spacing:3px;text-transform:uppercase;opacity:.4;">${storeName}</div>
+      </div>` : "";
+
+    const coverBg = hero
+      ? `background:url('${hero}') center/cover no-repeat;`
+      : `background:linear-gradient(135deg,${primary} 0%,${accent} 100%);`;
+
+    // thead com display:table-header-group repete em cada folha impressa (padrão W3C)
+    // @page { margin:0 } + height:297mm na capa = exatamente uma folha A4
     const html = `<!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="UTF-8"><title>Cardápio</title>
+<html lang="pt-BR"><head><meta charset="UTF-8"><title>${storeName} — Cardápio</title>
 <style>
-  body{font-family:Georgia,serif;max-width:680px;margin:0 auto;padding:32px;color:#1a1a1a}
-  h1{text-align:center;font-size:26px;letter-spacing:3px;text-transform:uppercase;margin-bottom:4px}
-  .sub{text-align:center;color:#999;font-size:12px;margin-bottom:36px;letter-spacing:1px}
-  h2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:#999;margin:32px 0 8px;padding-bottom:6px;border-bottom:1px solid #e8e8e8}
-  .item{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px dotted #ddd;gap:16px}
-  .name{font-size:14px;font-weight:700}
-  .desc{font-size:12px;color:#777;margin-top:3px;line-height:1.45}
-  .price{font-size:14px;font-weight:700;white-space:nowrap}
-  .print-btn{position:fixed;top:16px;right:16px;padding:8px 18px;background:#e96b2a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-family:sans-serif}
-  @media print{.print-btn{display:none}}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Georgia,serif;color:#1a1a1a;background:#fff;}
+  @page{size:A4;margin:0;}
+  @media print{.print-btn{display:none!important;}}
+  @media screen{body{max-width:740px;margin:0 auto;}}
 </style></head><body>
-<button class="print-btn" onclick="window.print()">Imprimir / PDF</button>
-<h1>Cardápio</h1>
-<div class="sub">gerado em ${new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}</div>
-${grouped.map((cat) => `<h2>${cat.namePt}</h2>${cat.items.map((item) => `
-<div class="item">
-  <div><div class="name">${item.namePt}</div>${item.descriptionPt ? `<div class="desc">${item.descriptionPt}</div>` : ""}</div>
-  ${item.basePrice != null ? `<div class="price">R$ ${Number(item.basePrice).toFixed(2).replace(".", ",")}</div>` : ""}
-</div>`).join("")}`).join("")}
+
+<button class="print-btn" onclick="window.print()" style="position:fixed;top:16px;right:16px;padding:9px 20px;background:${accent};color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-family:sans-serif;font-weight:600;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,.2);">Imprimir / PDF</button>
+
+<!-- Capa: height:297mm = exatamente uma folha A4 com @page margin:0 -->
+<div style="height:297mm;${coverBg}position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:72px;page-break-after:always;">
+  <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.12) 0%,rgba(0,0,0,.65) 100%);"></div>
+  <div style="position:relative;text-align:center;padding:0 48px;">
+    ${logo ? `<img src="${logo}" style="height:72px;width:auto;object-fit:contain;border-radius:12px;margin-bottom:24px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.4));" />` : ""}
+    <div style="font-size:38px;font-weight:800;color:#fff;letter-spacing:4px;text-transform:uppercase;line-height:1.1;text-shadow:0 2px 16px rgba(0,0,0,.5);">${storeName}</div>
+    ${slogan ? `<div style="font-size:15px;color:rgba(255,255,255,.85);margin-top:12px;letter-spacing:2px;font-style:italic;">${slogan}</div>` : ""}
+    <div style="margin-top:28px;display:inline-block;padding:10px 32px;border:2px solid rgba(255,255,255,.6);border-radius:100px;font-size:12px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#fff;">CARDÁPIO</div>
+  </div>
+</div>
+
+<!-- Tabela com thead repetido: padrão W3C para cabeçalho em todas as folhas -->
+<table style="width:100%;border-collapse:collapse;">
+  <thead>
+    <tr>
+      <td style="background:${primary};padding:10px 32px;height:52px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          ${logo ? `<img src="${logo}" style="height:32px;width:auto;object-fit:contain;border-radius:6px;flex-shrink:0;" />` : ""}
+          <div style="${logo ? "border-left:1px solid rgba(255,255,255,.25);padding-left:14px;" : ""}">
+            <div style="font-size:13px;font-weight:700;color:#fff;letter-spacing:1px;">${storeName}</div>
+            ${slogan ? `<div style="font-size:10px;color:rgba(255,255,255,.65);letter-spacing:.5px;">${slogan}</div>` : ""}
+          </div>
+        </div>
+      </td>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="padding:28px 40px 16px;vertical-align:top;background:#faf9f7;">
+        ${grouped.map((cat, idx) => renderCategory(cat, idx)).join("")}
+        ${aboutSection}
+        <div style="text-align:right;font-size:9px;color:#bbb;letter-spacing:.5px;margin-top:24px;padding-top:8px;border-top:1px solid #eee;">gerado em ${dateStr}</div>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
 </body></html>`;
 
     const win = window.open("", "_blank");
