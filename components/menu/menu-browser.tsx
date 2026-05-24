@@ -57,14 +57,15 @@ export function MenuBrowser({ store, categories, products, popularProductIds, lo
     let list = products;
 
     if (search.trim()) {
-      const q = search.toLowerCase();
+      const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+      const q = norm(search);
       list = list.filter(
         (p) =>
-          p.namePt.toLowerCase().includes(q) ||
-          (p.nameEn?.toLowerCase().includes(q)) ||
-          (p.nameEs?.toLowerCase().includes(q)) ||
-          (p.descriptionPt?.toLowerCase().includes(q)) ||
-          (p.descriptionEn?.toLowerCase().includes(q))
+          norm(p.namePt).includes(q) ||
+          (p.nameEn && norm(p.nameEn).includes(q)) ||
+          (p.nameEs && norm(p.nameEs).includes(q)) ||
+          (p.descriptionPt && norm(p.descriptionPt).includes(q)) ||
+          (p.descriptionEn && norm(p.descriptionEn).includes(q))
       );
     } else if (selectedCategory) {
       if (selectedCategory === "__popular") {

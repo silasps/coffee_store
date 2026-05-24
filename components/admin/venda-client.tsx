@@ -47,9 +47,7 @@ function formatPrice(value: number) {
 }
 
 export function VendaClient({ storeId, storeSlug, categories, products }: Props) {
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(
-    categories[0]?.id ?? null
-  );
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState("");
@@ -60,11 +58,15 @@ export function VendaClient({ storeId, storeSlug, categories, products }: Props)
   const [successPayment, setSuccessPayment] = useState<PaymentMethod | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
 
+  function normalize(str: string) {
+    return str.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  }
+
   const filteredProducts = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = normalize(search.trim());
     return products.filter((p) => {
       const matchesCategory = !activeCategoryId || p.categoryId === activeCategoryId;
-      const matchesSearch = !query || p.namePt.toLowerCase().includes(query);
+      const matchesSearch = !query || normalize(p.namePt).includes(query);
       return matchesCategory && matchesSearch;
     });
   }, [activeCategoryId, search, products]);

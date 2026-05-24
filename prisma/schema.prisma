@@ -113,6 +113,7 @@ model User {
   teamMemberships StoreTeamMember[]
   invitesUsed     StoreInvite[]
   subscription    Subscription?
+  sellerOrders    Order[]          @relation("SellerOrders")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -365,6 +366,9 @@ model Order {
   paidAt      DateTime?
   readyAt     DateTime?
   completedAt DateTime?
+
+  sellerId String?
+  seller   User?          @relation("SellerOrders", fields: [sellerId], references: [id])
 
   store   Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
   items   OrderItem[]

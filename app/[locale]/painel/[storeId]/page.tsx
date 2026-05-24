@@ -1,37 +1,62 @@
 import { db } from "@/lib/db";
 import { requireStoreAccess } from "@/lib/auth";
-import { ShoppingBag, DollarSign, TrendingUp, Clock } from "lucide-react";
+import { ShoppingBag, Clock, AlertTriangle, BarChart2 } from "lucide-react";
 import { formatCurrency } from "@/components/ui/format-currency";
+import Link from "next/link";
 
 type Props = {
   params: Promise<{ locale: string; storeId: string }>;
 };
 
 export default async function StoreDashboardPage({ params }: Props) {
-  const { storeId } = await params;
+  const { storeId, locale } = await params;
   await requireStoreAccess(storeId);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
+  const twentyMinAgo = new Date(Date.now() - 20 * 60 * 1000);
 
-  const [todayOrders, pendingOrders, todayRevenue, totalProducts] = await Promise.all([
+  const [
+    todayOrders,
+    pendingOrders,
+    delayedOrders,
+    channelBreakdown,
+    topProducts,
+    lowStock,
+  ] = await Promise.all([
     db.order.count({
       where: { storeId, createdAt: { gte: today, lt: tomorrow } },
     }),
     db.order.count({
       where: { storeId, status: { in: ["IN_QUEUE", "PREPARING"] } },
     }),
-    db.financeEntry.aggregate({
+    db.order.count({
       where: {
         storeId,
-        direction: "INCOME",
-        happenedAt: { gte: today, lt: tomorrow },
+        status: { in: ["IN_QUEUE", "PREPARING"] },
+        createdAt: { lt: twentyMinAgo },
       },
-      _sum: { amount: true },
     }),
-    db.product.count({ where: { storeId, isAvailable: true } }),
+    db.order.groupBy({
+      by: ["channel"],
+      where: { storeId, createdAt: { gte: today, lt: tomorrow } },
+      _count: true,
+    }),
+    db.orderItem.groupBy({
+      by: ["productNamePt"],
+      where: { order: { storeId, createdAt: { gte: today, lt: tomorrow } } },
+      _sum: { quantity: true },
+      orderBy: { _sum: { quantity: "desc" } },
+      take: 5,
+    }),
+    db.product.findMany({
+      where: { storeId, isAvailable: true, stockQuantity: { lte: 3, not: null } },
+      select: { namePt: true, stockQuantity: true },
+      orderBy: { stockQuantity: "asc" },
+      take: 5,
+    }),
   ]);
 
   const recentOrders = await db.order.findMany({
@@ -50,8 +75,6 @@ export default async function StoreDashboardPage({ params }: Props) {
     },
   });
 
-  const revenue = Number(todayRevenue._sum.amount ?? 0);
-
   const stats = [
     {
       label: "Pedidos hoje",
@@ -64,18 +87,6 @@ export default async function StoreDashboardPage({ params }: Props) {
       value: pendingOrders,
       icon: <Clock size={20} />,
       color: "#8B5CF6",
-    },
-    {
-      label: "Receita hoje",
-      value: formatCurrency(revenue),
-      icon: <DollarSign size={20} />,
-      color: "#10B981",
-    },
-    {
-      label: "Produtos ativos",
-      value: totalProducts,
-      icon: <TrendingUp size={20} />,
-      color: "#3B82F6",
     },
   ];
 
@@ -97,17 +108,40 @@ export default async function StoreDashboardPage({ params }: Props) {
     CANCELLED: "#EF4444",
   };
 
+  const channelLabel: Record<string, string> = {
+    TOTEM: "Totem",
+    TABLE: "Mesa",
+    COUNTER: "Balcão",
+  };
+
+  const maxQty = Math.max(1, ...topProducts.map((p) => Number(p._sum.quantity ?? 0)));
+
   return (
-    <div className="p-6">
-      <div className="mb-6">
+    <div className="p-6 space-y-8">
+      <div>
         <h1 className="text-2xl font-bold text-text-dark">Dashboard</h1>
         <p className="text-sm text-text-muted">
           {today.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
         </p>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* Delayed orders alert */}
+      {delayedOrders > 0 && (
+        <Link
+          href={`/${locale}/painel/${storeId}/pedidos`}
+          className="flex items-center gap-3 rounded-2xl px-4 py-3 border transition-opacity hover:opacity-80"
+          style={{ background: "#FFF7ED", borderColor: "#FED7AA" }}
+        >
+          <AlertTriangle size={20} style={{ color: "var(--orange)", flexShrink: 0 }} />
+          <p className="text-sm font-semibold flex-1" style={{ color: "#92400E" }}>
+            {delayedOrders} {delayedOrders === 1 ? "pedido atrasado" : "pedidos atrasados"} (+20 min sem atualização)
+          </p>
+          <span className="text-xs font-medium" style={{ color: "var(--orange)" }}>Ver →</span>
+        </Link>
+      )}
+
+      {/* Main stats */}
+      <div className="grid grid-cols-2 gap-4">
         {stats.map((stat) => (
           <div
             key={stat.label}
@@ -124,6 +158,94 @@ export default async function StoreDashboardPage({ params }: Props) {
             <p className="text-xs text-text-muted mt-0.5">{stat.label}</p>
           </div>
         ))}
+      </div>
+
+      {/* Channel breakdown */}
+      {channelBreakdown.length > 0 && (
+        <div
+          className="rounded-2xl p-4 border flex flex-wrap items-center gap-4"
+          style={{ background: "white", borderColor: "var(--cream-dark)" }}
+        >
+          <div className="flex items-center gap-2 text-sm font-semibold text-text-dark">
+            <BarChart2 size={16} style={{ color: "var(--text-muted)" }} />
+            Pedidos por canal
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {channelBreakdown.map((c) => (
+              <span
+                key={c.channel}
+                className="text-sm font-semibold px-3 py-1 rounded-full border"
+                style={{ borderColor: "var(--cream-dark)", color: "var(--brown-dark)" }}
+              >
+                {channelLabel[c.channel] ?? c.channel}&nbsp;
+                <span style={{ color: "var(--orange)" }}>{c._count}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top products today */}
+        {topProducts.length > 0 && (
+          <div
+            className="rounded-2xl border overflow-hidden"
+            style={{ background: "white", borderColor: "var(--cream-dark)" }}
+          >
+            <div className="px-5 py-4 border-b" style={{ borderColor: "var(--cream-dark)" }}>
+              <h2 className="font-bold text-text-dark">Mais pedidos hoje</h2>
+            </div>
+            <ul className="divide-y" style={{ borderColor: "var(--cream-dark)" }}>
+              {topProducts.map((p) => {
+                const qty = Number(p._sum.quantity ?? 0);
+                const pct = Math.round((qty / maxQty) * 100);
+                return (
+                  <li key={p.productNamePt} className="px-5 py-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-text-dark truncate pr-2">{p.productNamePt}</span>
+                      <span className="text-sm font-black shrink-0" style={{ color: "var(--orange)" }}>{qty}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "var(--cream-dark)" }}>
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${pct}%`, background: "var(--orange)" }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        {/* Low stock */}
+        {lowStock.length > 0 && (
+          <div
+            className="rounded-2xl border overflow-hidden"
+            style={{ background: "white", borderColor: "var(--cream-dark)" }}
+          >
+            <div className="px-5 py-4 border-b" style={{ borderColor: "var(--cream-dark)" }}>
+              <h2 className="font-bold text-text-dark">Estoque baixo</h2>
+            </div>
+            <ul className="divide-y" style={{ borderColor: "var(--cream-dark)" }}>
+              {lowStock.map((p) => (
+                <li key={p.namePt} className="px-5 py-3 flex items-center justify-between">
+                  <span className="text-sm text-text-dark truncate pr-2">{p.namePt}</span>
+                  <span
+                    className="text-xs font-bold px-2 py-0.5 rounded-full shrink-0"
+                    style={
+                      p.stockQuantity === 0
+                        ? { background: "#FEE2E2", color: "#EF4444" }
+                        : { background: "#FFF7ED", color: "#F97316" }
+                    }
+                  >
+                    {p.stockQuantity === 0 ? "Esgotado" : `${p.stockQuantity} restantes`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* Recent orders */}

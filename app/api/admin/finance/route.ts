@@ -34,6 +34,9 @@ export async function GET(req: NextRequest) {
   const ok = user.role === "SUPER_ADMIN" || (await canAccessStore(user.id, storeId));
   if (!ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  const category = searchParams.get("category");
+  const isExport = searchParams.get("export") === "1";
+
   const where = {
     storeId,
     ...(from || to
@@ -44,14 +47,15 @@ export async function GET(req: NextRequest) {
           },
         }
       : {}),
+    ...(category ? { category: category as FinanceCategory } : {}),
   };
 
   const [entries, totals] = await Promise.all([
     db.financeEntry.findMany({
       where,
       orderBy: { happenedAt: "desc" },
-      take: 200,
-      include: { order: { select: { displayCode: true } } },
+      ...(isExport ? {} : { take: 200 }),
+      include: { order: { select: { displayCode: true, paymentMethod: true } } },
     }),
     db.financeEntry.groupBy({
       by: ["direction"],

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { createPixPayment, createPaymentLink } from "@/lib/mercadopago";
+import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 
@@ -39,6 +40,20 @@ export async function POST(req: NextRequest) {
     const store = await db.store.findUnique({ where: { id: data.storeId } });
     if (!store) return NextResponse.json({ error: "Store not found" }, { status: 404 });
 
+    let sellerId: string | null = null;
+    try {
+      const supabase = await createClient();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        const dbUser = await db.user.findUnique({ where: { authId: authUser.id }, select: { id: true, role: true } });
+        if (dbUser && (dbUser.role === "SELLER" || dbUser.role === "STORE_ADMIN" || dbUser.role === "STORE_OWNER")) {
+          sellerId = dbUser.id;
+        }
+      }
+    } catch {
+      // unauthenticated request — no sellerId
+    }
+
     const displayCode = generateCode();
 
     const isCounterPresential =
@@ -49,6 +64,7 @@ export async function POST(req: NextRequest) {
 
     const orderData = {
       storeId: data.storeId,
+      sellerId,
       displayCode,
       customerName: data.customerName,
       tableLabel: data.tableLabel,

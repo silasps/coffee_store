@@ -19,7 +19,7 @@ export default async function FinanceiroPage({ params }: Props) {
       where: { storeId, happenedAt: { gte: from, lte: to } },
       orderBy: { happenedAt: "desc" },
       take: 200,
-      include: { order: { select: { displayCode: true } } },
+      include: { order: { select: { displayCode: true, paymentMethod: true } } },
     }),
     db.financeEntry.groupBy({
       by: ["direction"],
