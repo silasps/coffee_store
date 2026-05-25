@@ -44,27 +44,7 @@ const STATUS_CONFIG: Record<OrderStatus, { icon: React.ReactNode; color: string;
   CANCELLED: { icon: <XCircle size={32} />, color: "#EF4444", bgColor: "rgba(239,68,68,0.1)" },
 };
 
-// Statuses that warrant a sound alert (meaningful advances for the customer)
 const CHIME_STATUSES: OrderStatus[] = ["PREPARING", "READY"];
-
-function playChime() {
-  try {
-    const ctx = new AudioContext();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.4);
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.4);
-  } catch {
-    // AudioContext blocked or unavailable — skip silently
-  }
-}
 
 export function OrderStatusClient({ order: initial, pixQrCode, pixCopyPaste, paymentLink, storeSlug, locale }: Props) {
   const t = useTranslations("order");
@@ -73,6 +53,45 @@ export function OrderStatusClient({ order: initial, pixQrCode, pixCopyPaste, pay
   const [copied, setCopied] = useState(false);
   const [justChanged, setJustChanged] = useState(false);
   const prevStatusRef = useRef<OrderStatus>(initial.status);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  // Initialize AudioContext on first user interaction (browser autoplay policy)
+  useEffect(() => {
+    function initAudio() {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioContext();
+      }
+      document.removeEventListener("click", initAudio);
+      document.removeEventListener("touchstart", initAudio);
+    }
+    document.addEventListener("click", initAudio);
+    document.addEventListener("touchstart", initAudio);
+    return () => {
+      document.removeEventListener("click", initAudio);
+      document.removeEventListener("touchstart", initAudio);
+    };
+  }, []);
+
+  const playChime = useCallback(() => {
+    const ctx = audioCtxRef.current;
+    if (!ctx) return;
+    try {
+      const resume = ctx.state === "suspended" ? ctx.resume() : Promise.resolve();
+      resume.then(() => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.4);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.4);
+      }).catch(() => {});
+    } catch {}
+  }, []);
 
   const pollStatus = useCallback(async () => {
     try {
@@ -83,18 +102,17 @@ export function OrderStatusClient({ order: initial, pixQrCode, pixCopyPaste, pay
         if (newStatus !== prevStatusRef.current) {
           prevStatusRef.current = newStatus;
           setJustChanged(true);
-          setTimeout(() => setJustChanged(false), 1000);
+          setTimeout(() => setJustChanged(false), 1500);
           if (CHIME_STATUSES.includes(newStatus)) playChime();
         }
         setOrder((prev) => ({ ...prev, status: newStatus, paymentStatus: data.paymentStatus }));
       }
     } catch {}
-  }, [initial.id]);
+  }, [initial.id, playChime]);
 
   useEffect(() => {
     const shouldPoll = !["COMPLETED", "CANCELLED"].includes(order.status);
     if (!shouldPoll) return;
-
     const interval = setInterval(pollStatus, 5000);
     return () => clearInterval(interval);
   }, [order.status, pollStatus]);
@@ -134,15 +152,21 @@ export function OrderStatusClient({ order: initial, pixQrCode, pixCopyPaste, pay
 
         {/* Status card */}
         <div
-          className={`rounded-2xl p-6 flex flex-col items-center gap-3 mb-4 text-center transition-all duration-300 ${
-            justChanged ? "scale-105 ring-2" : ""
-          }`}
+          className="rounded-2xl p-6 flex flex-col items-center gap-3 mb-4 text-center transition-all duration-500"
           style={{
             background: statusConfig.bgColor,
-            ...(justChanged ? { "--tw-ring-color": statusConfig.color } as React.CSSProperties : {}),
+            transform: justChanged ? "scale(1.04)" : "scale(1)",
+            boxShadow: justChanged
+              ? `0 0 0 3px ${statusConfig.color}, 0 8px 24px ${statusConfig.color}40`
+              : "none",
           }}
         >
-          <div style={{ color: statusConfig.color }}>{statusConfig.icon}</div>
+          <div
+            style={{ color: statusConfig.color }}
+            className={justChanged ? "animate-bounce" : ""}
+          >
+            {statusConfig.icon}
+          </div>
           <p className="font-bold text-lg" style={{ color: statusConfig.color }}>
             {t(order.status.toLowerCase() as "awaiting" | "inQueue" | "preparing" | "ready" | "completed" | "cancelled")}
           </p>
