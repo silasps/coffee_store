@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { requireStoreAccess } from "@/lib/auth";
-import { ShoppingBag, Clock, AlertTriangle, BarChart2 } from "lucide-react";
+import { ShoppingBag, Clock, AlertTriangle, BarChart2, TrendingUp } from "lucide-react";
 import { formatCurrency } from "@/components/ui/format-currency";
 import Link from "next/link";
 
@@ -25,6 +25,7 @@ export default async function StoreDashboardPage({ params }: Props) {
     channelBreakdown,
     topProducts,
     lowStock,
+    revenueAgg,
   ] = await Promise.all([
     db.order.count({
       where: { storeId, createdAt: { gte: today, lt: tomorrow } },
@@ -57,6 +58,10 @@ export default async function StoreDashboardPage({ params }: Props) {
       orderBy: { stockQuantity: "asc" },
       take: 5,
     }),
+    db.order.aggregate({
+      where: { storeId, createdAt: { gte: today, lt: tomorrow }, paymentStatus: "PAID" },
+      _sum: { total: true },
+    }),
   ]);
 
   const recentOrders = await db.order.findMany({
@@ -75,18 +80,29 @@ export default async function StoreDashboardPage({ params }: Props) {
     },
   });
 
+  const todayRevenue = Number(revenueAgg._sum.total ?? 0);
+
   const stats = [
     {
       label: "Pedidos hoje",
       value: todayOrders,
       icon: <ShoppingBag size={20} />,
       color: "var(--orange)",
+      href: `/${locale}/painel/${storeId}/pedidos`,
     },
     {
       label: "Em preparo",
       value: pendingOrders,
       icon: <Clock size={20} />,
       color: "#8B5CF6",
+      href: `/${locale}/painel/${storeId}/pedidos`,
+    },
+    {
+      label: "Receita hoje",
+      value: formatCurrency(todayRevenue),
+      icon: <TrendingUp size={20} />,
+      color: "#10B981",
+      href: `/${locale}/painel/${storeId}/financeiro`,
     },
   ];
 
@@ -141,11 +157,12 @@ export default async function StoreDashboardPage({ params }: Props) {
       )}
 
       {/* Main stats */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         {stats.map((stat) => (
-          <div
+          <Link
             key={stat.label}
-            className="rounded-2xl p-4 border"
+            href={stat.href}
+            className="rounded-2xl p-4 border block transition-opacity hover:opacity-80"
             style={{ background: "white", borderColor: "var(--cream-dark)" }}
           >
             <div
@@ -156,7 +173,7 @@ export default async function StoreDashboardPage({ params }: Props) {
             </div>
             <p className="text-2xl font-black text-text-dark">{stat.value}</p>
             <p className="text-xs text-text-muted mt-0.5">{stat.label}</p>
-          </div>
+          </Link>
         ))}
       </div>
 
@@ -192,9 +209,14 @@ export default async function StoreDashboardPage({ params }: Props) {
             className="rounded-2xl border overflow-hidden"
             style={{ background: "white", borderColor: "var(--cream-dark)" }}
           >
-            <div className="px-5 py-4 border-b" style={{ borderColor: "var(--cream-dark)" }}>
+            <Link
+              href={`/${locale}/painel/${storeId}/produtos`}
+              className="px-5 py-4 border-b flex items-center justify-between hover:opacity-80 transition-opacity"
+              style={{ borderColor: "var(--cream-dark)" }}
+            >
               <h2 className="font-bold text-text-dark">Mais pedidos hoje</h2>
-            </div>
+              <span className="text-xs" style={{ color: "var(--orange)" }}>Ver produtos →</span>
+            </Link>
             <ul className="divide-y" style={{ borderColor: "var(--cream-dark)" }}>
               {topProducts.map((p) => {
                 const qty = Number(p._sum.quantity ?? 0);
@@ -224,9 +246,14 @@ export default async function StoreDashboardPage({ params }: Props) {
             className="rounded-2xl border overflow-hidden"
             style={{ background: "white", borderColor: "var(--cream-dark)" }}
           >
-            <div className="px-5 py-4 border-b" style={{ borderColor: "var(--cream-dark)" }}>
+            <Link
+              href={`/${locale}/painel/${storeId}/produtos`}
+              className="px-5 py-4 border-b flex items-center justify-between hover:opacity-80 transition-opacity"
+              style={{ borderColor: "var(--cream-dark)" }}
+            >
               <h2 className="font-bold text-text-dark">Estoque baixo</h2>
-            </div>
+              <span className="text-xs" style={{ color: "var(--orange)" }}>Ver produtos →</span>
+            </Link>
             <ul className="divide-y" style={{ borderColor: "var(--cream-dark)" }}>
               {lowStock.map((p) => (
                 <li key={p.namePt} className="px-5 py-3 flex items-center justify-between">

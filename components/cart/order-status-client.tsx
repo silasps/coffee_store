@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { CheckCircle, Clock, ChefHat, Package, XCircle, Copy, Check, ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -44,18 +44,49 @@ const STATUS_CONFIG: Record<OrderStatus, { icon: React.ReactNode; color: string;
   CANCELLED: { icon: <XCircle size={32} />, color: "#EF4444", bgColor: "rgba(239,68,68,0.1)" },
 };
 
+// Statuses that warrant a sound alert (meaningful advances for the customer)
+const CHIME_STATUSES: OrderStatus[] = ["PREPARING", "READY"];
+
+function playChime() {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.4);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  } catch {
+    // AudioContext blocked or unavailable — skip silently
+  }
+}
+
 export function OrderStatusClient({ order: initial, pixQrCode, pixCopyPaste, paymentLink, storeSlug, locale }: Props) {
   const t = useTranslations("order");
   const router = useRouter();
   const [order, setOrder] = useState(initial);
   const [copied, setCopied] = useState(false);
+  const [justChanged, setJustChanged] = useState(false);
+  const prevStatusRef = useRef<OrderStatus>(initial.status);
 
   const pollStatus = useCallback(async () => {
     try {
       const res = await fetch(`/api/orders/${initial.id}/status`);
       if (res.ok) {
         const data = await res.json();
-        setOrder((prev) => ({ ...prev, status: data.status, paymentStatus: data.paymentStatus }));
+        const newStatus: OrderStatus = data.status;
+        if (newStatus !== prevStatusRef.current) {
+          prevStatusRef.current = newStatus;
+          setJustChanged(true);
+          setTimeout(() => setJustChanged(false), 1000);
+          if (CHIME_STATUSES.includes(newStatus)) playChime();
+        }
+        setOrder((prev) => ({ ...prev, status: newStatus, paymentStatus: data.paymentStatus }));
       }
     } catch {}
   }, [initial.id]);
@@ -103,8 +134,13 @@ export function OrderStatusClient({ order: initial, pixQrCode, pixCopyPaste, pay
 
         {/* Status card */}
         <div
-          className="rounded-2xl p-6 flex flex-col items-center gap-3 mb-4 text-center"
-          style={{ background: statusConfig.bgColor }}
+          className={`rounded-2xl p-6 flex flex-col items-center gap-3 mb-4 text-center transition-all duration-300 ${
+            justChanged ? "scale-105 ring-2" : ""
+          }`}
+          style={{
+            background: statusConfig.bgColor,
+            ...(justChanged ? { "--tw-ring-color": statusConfig.color } as React.CSSProperties : {}),
+          }}
         >
           <div style={{ color: statusConfig.color }}>{statusConfig.icon}</div>
           <p className="font-bold text-lg" style={{ color: statusConfig.color }}>

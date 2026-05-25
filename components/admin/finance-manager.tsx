@@ -112,6 +112,8 @@ export function FinanceManager({ storeId, initialEntries, initialIncome, initial
   const [form, setForm] = useState(EMPTY_FORM);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   function buildDateRange(isEnd = false) {
     if (dateMode === "month") {
@@ -166,21 +168,37 @@ export function FinanceManager({ storeId, initialEntries, initialIncome, initial
     e.preventDefault();
     const digits = form.amount.replace(/\D/g, "");
     const amount = parseInt(digits || "0", 10) / 100;
-    if (!amount || isNaN(amount) || amount <= 0) return;
-    const res = await fetch("/api/admin/finance", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        storeId, direction: form.direction, category: form.category,
-        description: form.description, amount, happenedAt: form.happenedAt,
-        notes: form.customCategory
-          ? `_label:${form.customCategory}${form.notes ? "\n" + form.notes : ""}`
-          : form.notes || null,
-      }),
-    });
-    if (res.ok) {
-      setShowForm(false); setForm(EMPTY_FORM);
+    if (!amount || amount <= 0) {
+      setFormError("Informe um valor maior que zero.");
+      return;
+    }
+    setFormError(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/admin/finance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storeId, direction: form.direction, category: form.category,
+          description: form.description, amount, happenedAt: form.happenedAt,
+          notes: form.customCategory
+            ? `_label:${form.customCategory}${form.notes ? "\n" + form.notes : ""}`
+            : form.notes || null,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setFormError(body.error ?? `Erro ${res.status} ao salvar.`);
+        return;
+      }
+      setShowForm(false);
+      setForm(EMPTY_FORM);
+      setFormError(null);
       await load(month, year);
+    } catch {
+      setFormError("Erro de conexão. Tente novamente.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -532,9 +550,19 @@ ${transactions}
           </div>
         ))}
 
-        <div className="p-5">
-          <button type="submit" className="w-full py-4 rounded-2xl text-white font-bold text-base" style={{ background: accentColor }}>
-            Salvar {isIncome ? "Receita" : "Despesa"}
+        <div className="p-5 flex flex-col gap-3">
+          {formError && (
+            <div className="rounded-xl px-3 py-2.5 text-sm font-medium text-red-700 bg-red-50 border border-red-200">
+              {formError}
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full py-4 rounded-2xl text-white font-bold text-base disabled:opacity-60 transition-opacity"
+            style={{ background: accentColor }}
+          >
+            {submitting ? "Salvando..." : `Salvar ${isIncome ? "Receita" : "Despesa"}`}
           </button>
         </div>
       </form>
@@ -588,7 +616,7 @@ ${transactions}
 
           {/* New entry button */}
           <button
-            onClick={() => { setForm(EMPTY_FORM); setShowForm(true); }}
+            onClick={() => { setForm(EMPTY_FORM); setFormError(null); setShowForm(true); }}
             className="w-10 h-10 flex items-center justify-center rounded-full text-white shadow-md"
             style={{ background: "var(--orange)" }}
           >

@@ -70,11 +70,11 @@ export function AdminShell({ children, storeId, storeSlug, storeLocale, storeNam
   // OWNER/SUPER   → everything
   const allNav: NavItem[] = [
     { icon: <LayoutDashboard size={20} />, label: label("dashboard"), href: base },
+    { icon: <ShoppingBag size={20} />, label: label("orders"), href: `${base}/pedidos` },
     { icon: <CreditCard size={20} />, label: "Venda", href: `${base}/venda` },
+    ...(!isSeller ? [{ icon: <DollarSign size={20} />, label: label("finance"), href: `${base}/financeiro` }] : []),
     ...(!isSeller ? [{ icon: <Package size={20} />, label: label("products"), href: `${base}/produtos` }] : []),
     ...(!isSeller ? [{ icon: <Tag size={20} />, label: label("categories"), href: `${base}/categorias` }] : []),
-    { icon: <ShoppingBag size={20} />, label: label("orders"), href: `${base}/pedidos` },
-    ...(!isSeller ? [{ icon: <DollarSign size={20} />, label: label("finance"), href: `${base}/financeiro` }] : []),
     ...(!isSeller ? [{ icon: <ArrowLeftRight size={20} />, label: label("import"), href: `${base}/importar` }] : []),
     ...(isOwner ? [{ icon: <Settings size={20} />, label: label("settings"), href: `${base}/configuracoes` }] : []),
     ...(isOwner ? [{ icon: <Users size={20} />, label: "Equipe", href: `${base}/equipe` }] : []),
