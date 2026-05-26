@@ -3,19 +3,28 @@ import { db } from "./db";
 import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
 
-export async function getUser() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+type GetUserResult = { user: Awaited<ReturnType<typeof db.user.findUnique>>; offline: false } | { user: null; offline: boolean };
 
-  const dbUser = await db.user.findUnique({ where: { authId: user.id } });
-  return dbUser;
+export async function getUser(): Promise<GetUserResult> {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) {
+      const isNetwork = error.message?.includes("fetch") || error.message?.includes("abort") || error.name === "AbortError";
+      return { user: null, offline: isNetwork };
+    }
+    if (!user) return { user: null, offline: false };
+    const dbUser = await db.user.findUnique({ where: { authId: user.id } });
+    return { user: dbUser, offline: false };
+  } catch {
+    return { user: null, offline: true };
+  }
 }
 
 export async function requireAuth(locale = "pt") {
-  const user = await getUser();
-  if (!user) redirect(`/${locale}/acesso`);
-  return user;
+  const { user, offline } = await getUser();
+  if (!user) redirect(`/${locale}/acesso${offline ? "?offline=1" : ""}`);
+  return user!;
 }
 
 export async function requireRole(role: UserRole, locale = "pt") {

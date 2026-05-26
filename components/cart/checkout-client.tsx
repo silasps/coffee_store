@@ -71,10 +71,10 @@ export function CheckoutClient({ store, locale }: Props) {
   const selectedPayment = watch("paymentMethod");
 
   useEffect(() => {
-    if (items.length === 0) {
+    if (items.length === 0 && !submitting) {
       router.replace(`/${locale}/${store.slug}`);
     }
-  }, [items.length, locale, store.slug, router]);
+  }, [items.length, submitting, locale, store.slug, router]);
 
   if (items.length === 0) return null;
 
@@ -105,7 +105,12 @@ export function CheckoutClient({ store, locale }: Props) {
 
       if (!res.ok) throw new Error("Failed to place order");
 
-      const { orderId, pixQrCode, pixCopyPaste, paymentLink } = await res.json();
+      const { orderId, pixQrCode, pixCopyPaste, paymentLink, displayCode } = await res.json();
+      // Save active order so the menu can show a floating status badge
+      localStorage.setItem(
+        `active-order-${store.slug}`,
+        JSON.stringify({ orderId, displayCode, storeSlug: store.slug, locale }),
+      );
       clearCart();
       router.push(`/${locale}/${store.slug}/pedido/${orderId}?pix=${encodeURIComponent(pixQrCode ?? "")}&copy=${encodeURIComponent(pixCopyPaste ?? "")}&link=${encodeURIComponent(paymentLink ?? "")}`);
     } catch {

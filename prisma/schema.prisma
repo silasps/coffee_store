@@ -209,6 +209,8 @@ model Store {
   brandCauseVisible  Boolean @default(true)
   brandJoinVisible   Boolean @default(true)
 
+  businessHours Json?
+
   owner      User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   team       StoreTeamMember[]
   invites    StoreInvite[]

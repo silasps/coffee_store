@@ -7,6 +7,8 @@ import { CategorySidebar, type CategoryNav } from "./category-sidebar";
 import { ProductCard, type ProductCardData } from "./product-card";
 import { PublicHeader } from "./public-header";
 import { CartDrawer } from "@/components/cart/cart-drawer";
+import { FloatingOrderBadge } from "@/components/cart/floating-order-badge";
+import { PageTransitionLoader } from "@/components/ui/page-transition-loader";
 import { AnimatePresence, motion } from "framer-motion";
 import { useCartStore } from "@/lib/cart-store";
 
@@ -192,6 +194,12 @@ export function MenuBrowser({ store, categories, products, popularProductIds, lo
         storeSlug={store.slug}
         locale={locale}
       />
+
+      {/* Floating badge for active order */}
+      <FloatingOrderBadge storeSlug={store.slug} />
+
+      {/* Page transition loader */}
+      <PageTransitionLoader />
     </div>
   );
 }

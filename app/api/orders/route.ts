@@ -40,6 +40,28 @@ export async function POST(req: NextRequest) {
     const store = await db.store.findUnique({ where: { id: data.storeId } });
     if (!store) return NextResponse.json({ error: "Store not found" }, { status: 404 });
 
+    if (store.businessHours) {
+      const bh = store.businessHours as { enabled: boolean; timezone: string; days: Array<{ day: number; open: string; close: string; closed: boolean }> };
+      if (bh.enabled && bh.days?.length) {
+        const tz = bh.timezone || "America/Sao_Paulo";
+        const now = new Date();
+        const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", minute: "numeric", weekday: "short", hour12: false }).formatToParts(now);
+        const weekday = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(parts.find(p => p.type === "weekday")?.value ?? "Sun");
+        const h = Number(parts.find(p => p.type === "hour")?.value ?? 0);
+        const m = Number(parts.find(p => p.type === "minute")?.value ?? 0);
+        const currentMin = (h === 24 ? 0 : h) * 60 + m;
+        const slot = bh.days.find(d => d.day === weekday);
+        if (!slot || slot.closed) {
+          return NextResponse.json({ error: "Loja fechada" }, { status: 403 });
+        }
+        const [oh, om] = slot.open.split(":").map(Number);
+        const [ch, cm] = slot.close.split(":").map(Number);
+        if (currentMin < oh * 60 + om || currentMin >= ch * 60 + cm) {
+          return NextResponse.json({ error: "Loja fechada" }, { status: 403 });
+        }
+      }
+    }
+
     let sellerId: string | null = null;
     try {
       const supabase = await createClient();

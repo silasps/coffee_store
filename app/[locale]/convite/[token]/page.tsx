@@ -26,7 +26,7 @@ export default async function ConvitePage({ params }: Props) {
     return <InviteError title="Convite expirado" message="Este link expirou. Solicite um novo convite ao responsável da loja." />;
   }
 
-  const user = await getUser();
+  const { user } = await getUser();
 
   if (user) {
     const isOwner = await db.store.findFirst({

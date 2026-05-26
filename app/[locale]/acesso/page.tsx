@@ -213,6 +213,8 @@ export default function LoginPage({ params }: Props) {
   const nextUrl = searchParams.get("next") ?? `/${locale}/painel`;
   const authStatus = searchParams.get("auth");
 
+  const isOffline = searchParams.get("offline") === "1";
+
   const [mode, setMode] = useState<Mode>("login");
   const [name, setName] = useState("");
   const [dialCode, setDialCode] = useState("+55");
@@ -239,11 +241,13 @@ export default function LoginPage({ params }: Props) {
   }, []);
 
   useEffect(() => {
+    if (isOffline) return; // servidor não consegue validar sessão — não redirecionar
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace(nextUrl);
-    });
-  }, [nextUrl, router]);
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) router.replace(nextUrl);
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOffline]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -252,12 +256,25 @@ export default function LoginPage({ params }: Props) {
     setConfirmationHelp(false);
     setResendSent(false);
     const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+
+    let authError: { message: string } | null = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (!error) { authError = null; break; }
+      authError = error;
+      const isNetwork = error.message === "Failed to fetch" || error.message?.includes("fetch");
+      if (!isNetwork || attempt === 3) break;
+      setError(`Falha de conexão. Tentando novamente (${attempt}/3)…`);
+      await new Promise((r) => setTimeout(r, 1500 * attempt));
+    }
+
     if (authError) {
       const needsConfirmation = isEmailConfirmationError(authError.message);
       setConfirmationHelp(needsConfirmation);
       setError(
-        needsConfirmation
+        authError.message === "Failed to fetch"
+          ? "Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente."
+          : needsConfirmation
           ? "Seu e-mail ainda não foi confirmado. Reenvie a confirmação e use o link mais recente."
           : authError.message
       );
@@ -465,6 +482,11 @@ export default function LoginPage({ params }: Props) {
           {/* ── LOGIN ── */}
           {mode === "login" && (
             <form onSubmit={handleLogin} className="flex flex-col gap-4">
+              {isOffline && !error && (
+                <div className="rounded-xl px-4 py-3 text-sm text-amber-300 bg-amber-500/10 border border-amber-500/20">
+                  Serviço temporariamente indisponível. Faça login para continuar.
+                </div>
+              )}
               {error && (
                 <div className="rounded-xl px-4 py-3 text-sm text-red-300 bg-red-500/10 border border-red-500/20">{error}</div>
               )}

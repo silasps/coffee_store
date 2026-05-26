@@ -2,11 +2,25 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Save, Loader2, Upload, X, Camera, Heart, Users, Eye, EyeOff, Sparkles, MonitorSmartphone } from "lucide-react";
+import { Save, Loader2, Upload, X, Camera, Heart, Users, Eye, EyeOff, Sparkles, MonitorSmartphone, Clock } from "lucide-react";
 import { BrandPageContent, type BrandStore } from "@/components/menu/brand-page-content";
 import { ImagePicker } from "@/components/admin/image-picker";
 
 // ── Types ──────────────────────────────────────────────────────────────────
+type DayHours = { day: number; open: string; close: string; closed: boolean };
+type BusinessHoursConfig = { enabled: boolean; timezone: string; days: DayHours[] };
+
+const DEFAULT_DAYS: DayHours[] = [
+  { day: 0, open: "08:00", close: "18:00", closed: true },
+  { day: 1, open: "08:00", close: "18:00", closed: false },
+  { day: 2, open: "08:00", close: "18:00", closed: false },
+  { day: 3, open: "08:00", close: "18:00", closed: false },
+  { day: 4, open: "08:00", close: "18:00", closed: false },
+  { day: 5, open: "08:00", close: "18:00", closed: false },
+  { day: 6, open: "08:00", close: "14:00", closed: false },
+];
+const DAY_NAMES = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
 export type StoreForSettings = {
   id: string; slug: string;
   namePt: string; nameEn: string | null; nameEs: string | null;
@@ -24,6 +38,7 @@ export type StoreForSettings = {
   brandJoinCtaLabel: string | null; brandJoinCtaUrl: string | null;
   brandAboutTitlePt: string | null; brandAboutTitleEn: string | null; brandAboutTitleEs: string | null;
   brandAboutVisible: boolean; brandCauseVisible: boolean; brandJoinVisible: boolean;
+  businessHours: unknown;
 };
 
 const LANGS: Record<string, string> = { pt: "PT 🇧🇷", en: "EN 🇺🇸", es: "ES 🇪🇸" };
@@ -145,6 +160,16 @@ export function StoreSettingsClient({ store, isPaidPlan = false }: { store: Stor
   const [causeTab, setCauseTab] = useState(store.defaultLocale);
   const [joinTab, setJoinTab] = useState(store.defaultLocale);
 
+  // ── Horários state
+  const initBh = store.businessHours as BusinessHoursConfig | null;
+  const [bhEnabled, setBhEnabled] = useState(initBh?.enabled ?? false);
+  const [bhTimezone, setBhTimezone] = useState(initBh?.timezone ?? "America/Sao_Paulo");
+  const [bhDays, setBhDays] = useState<DayHours[]>(initBh?.days ?? DEFAULT_DAYS);
+
+  function updateDay(idx: number, patch: Partial<DayHours>) {
+    setBhDays(prev => prev.map((d, i) => i === idx ? { ...d, ...patch } : d));
+  }
+
   // ── UI state
   const [activeTab, setActiveTab] = useState<"loja" | "marca">("loja");
   const [saving, setSaving] = useState(false);
@@ -257,6 +282,7 @@ export function StoreSettingsClient({ store, isPaidPlan = false }: { store: Stor
           brandJoinCtaLabel, brandJoinCtaUrl,
           brandAboutTitlePt, brandAboutTitleEn, brandAboutTitleEs,
           brandAboutVisible, brandCauseVisible, brandJoinVisible,
+          businessHours: { enabled: bhEnabled, timezone: bhTimezone, days: bhDays },
         }),
       });
       const data = await res.json();
@@ -430,6 +456,72 @@ export function StoreSettingsClient({ store, isPaidPlan = false }: { store: Stor
                 </div>
               </Field>
             </div>
+          </Section>
+
+          {/* Horários de funcionamento */}
+          <Section title="Horários de funcionamento" icon={<Clock size={14} style={{ color: "var(--orange)" }} />}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Bloquear pedidos fora do horário
+              </span>
+              <button
+                type="button"
+                onClick={() => setBhEnabled(v => !v)}
+                className={`relative w-10 h-5 rounded-full transition-colors ${bhEnabled ? "bg-orange-500" : "bg-gray-200"}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${bhEnabled ? "translate-x-[18px]" : "translate-x-0"}`} />
+              </button>
+            </div>
+            {bhEnabled && (
+              <div className="space-y-2 pt-1">
+                <div className="space-y-1">
+                  {bhDays.map((d, i) => (
+                    <div key={d.day} className="flex items-center gap-2">
+                      <span className="text-xs font-medium w-7 flex-shrink-0" style={{ color: "var(--text-muted)" }}>{DAY_NAMES[d.day]}</span>
+                      <button
+                        type="button"
+                        onClick={() => updateDay(i, { closed: !d.closed })}
+                        className={`text-xs px-2 py-1 rounded-lg flex-shrink-0 transition-colors ${d.closed ? "bg-gray-100 text-gray-400" : "text-white"}`}
+                        style={d.closed ? {} : { background: "var(--orange)" }}
+                      >
+                        {d.closed ? "Fechado" : "Aberto"}
+                      </button>
+                      {!d.closed && (
+                        <>
+                          <input
+                            type="time" value={d.open}
+                            onChange={e => updateDay(i, { open: e.target.value })}
+                            className="text-xs px-2 py-1 rounded-lg border flex-1 min-w-0 outline-none focus:ring-1 focus:ring-orange-200"
+                            style={{ borderColor: "var(--cream-dark)", background: "var(--cream)" }}
+                          />
+                          <span className="text-xs" style={{ color: "var(--text-muted)" }}>às</span>
+                          <input
+                            type="time" value={d.close}
+                            onChange={e => updateDay(i, { close: e.target.value })}
+                            className="text-xs px-2 py-1 rounded-lg border flex-1 min-w-0 outline-none focus:ring-1 focus:ring-orange-200"
+                            style={{ borderColor: "var(--cream-dark)", background: "var(--cream)" }}
+                          />
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <Field label="Fuso horário">
+                  <select
+                    className={inp} style={inpStyle}
+                    value={bhTimezone} onChange={e => setBhTimezone(e.target.value)}
+                  >
+                    <option value="America/Sao_Paulo">Brasília (GMT-3)</option>
+                    <option value="America/Manaus">Manaus (GMT-4)</option>
+                    <option value="America/Belem">Belém (GMT-3)</option>
+                    <option value="America/Fortaleza">Fortaleza (GMT-3)</option>
+                    <option value="America/Noronha">Fernando de Noronha (GMT-2)</option>
+                    <option value="America/Porto_Velho">Porto Velho (GMT-4)</option>
+                    <option value="America/Rio_Branco">Rio Branco (GMT-5)</option>
+                  </select>
+                </Field>
+              </div>
+            )}
           </Section>
 
           {/* Feedback + save */}

@@ -107,6 +107,36 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ...entry, amount: Number(entry.amount) }, { status: 201 });
 }
 
+export async function PATCH(req: NextRequest) {
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await req.json();
+  const { id, direction, category, description, amount, happenedAt, notes } = body;
+  if (!id) return NextResponse.json({ error: "id obrigatório" }, { status: 400 });
+
+  const entry = await db.financeEntry.findUnique({ where: { id } });
+  if (!entry) return NextResponse.json({ error: "Não encontrado" }, { status: 404 });
+  if (entry.orderId) return NextResponse.json({ error: "Não é possível editar lançamentos vinculados a pedidos" }, { status: 400 });
+
+  const ok = user.role === "SUPER_ADMIN" || (await canAccessStore(user.id, entry.storeId));
+  if (!ok) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const updated = await db.financeEntry.update({
+    where: { id },
+    data: {
+      direction: direction as FinanceDirection,
+      category: category as FinanceCategory,
+      description,
+      amount,
+      happenedAt: happenedAt ? new Date(happenedAt) : entry.happenedAt,
+      notes: notes || null,
+    },
+  });
+
+  return NextResponse.json({ ...updated, amount: Number(updated.amount) });
+}
+
 export async function DELETE(req: NextRequest) {
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ArrowLeft, Plus, ChevronLeft, ChevronRight, Trash2, RefreshCw, Download } from "lucide-react";
+import { ArrowLeft, Plus, ChevronLeft, ChevronRight, Trash2, RefreshCw, Download, Pencil } from "lucide-react";
 import { formatCurrency } from "@/components/ui/format-currency";
 
 type FinanceEntry = {
@@ -110,6 +110,7 @@ export function FinanceManager({ storeId, initialEntries, initialIncome, initial
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(true);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -164,8 +165,25 @@ export function FinanceManager({ storeId, initialEntries, initialIncome, initial
     );
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function openEditForm(entry: FinanceEntry) {
+    const isCustom = entry.category === "OTHER";
+    setForm({
+      direction: entry.direction as "INCOME" | "EXPENSE",
+      category: entry.category,
+      description: entry.description,
+      amount: entry.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+      happenedAt: entry.happenedAt.slice(0, 10),
+      notes: extractNotes(entry.notes) ?? "",
+      customCategory: isCustom && entry.notes?.startsWith("_label:")
+        ? entry.notes.split("\n")[0].replace("_label:", "")
+        : "",
+    });
+    setEditingId(entry.id);
+    setFormError(null);
+    setShowForm(true);
+  }
+
+  async function doSubmit(keepOpen: boolean) {
     const digits = form.amount.replace(/\D/g, "");
     const amount = parseInt(digits || "0", 10) / 100;
     if (!amount || amount <= 0) {
@@ -174,27 +192,33 @@ export function FinanceManager({ storeId, initialEntries, initialIncome, initial
     }
     setFormError(null);
     setSubmitting(true);
+    const notesValue = form.customCategory
+      ? `_label:${form.customCategory}${form.notes ? "\n" + form.notes : ""}`
+      : form.notes || null;
     try {
       const res = await fetch("/api/admin/finance", {
-        method: "POST",
+        method: editingId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          storeId, direction: form.direction, category: form.category,
-          description: form.description, amount, happenedAt: form.happenedAt,
-          notes: form.customCategory
-            ? `_label:${form.customCategory}${form.notes ? "\n" + form.notes : ""}`
-            : form.notes || null,
-        }),
+        body: JSON.stringify(editingId
+          ? { id: editingId, direction: form.direction, category: form.category, description: form.description, amount, happenedAt: form.happenedAt, notes: notesValue }
+          : { storeId, direction: form.direction, category: form.category, description: form.description, amount, happenedAt: form.happenedAt, notes: notesValue }
+        ),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         setFormError(body.error ?? `Erro ${res.status} ao salvar.`);
         return;
       }
-      setShowForm(false);
-      setForm(EMPTY_FORM);
-      setFormError(null);
       await load(month, year);
+      if (keepOpen && !editingId) {
+        setForm(EMPTY_FORM);
+        setFormError(null);
+      } else {
+        setShowForm(false);
+        setEditingId(null);
+        setForm(EMPTY_FORM);
+        setFormError(null);
+      }
     } catch {
       setFormError("Erro de conexão. Tente novamente.");
     } finally {
@@ -444,10 +468,10 @@ ${transactions}
   if (showForm) return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="px-5 pt-5 pb-7 flex-shrink-0" style={{ background: accentColor }}>
-        <button onClick={() => setShowForm(false)} className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm mb-5">
+        <button onClick={() => { setShowForm(false); setEditingId(null); setForm(EMPTY_FORM); }} className="flex items-center gap-1.5 text-white/70 hover:text-white text-sm mb-5">
           <ArrowLeft size={15} /> Voltar
         </button>
-        <p className="text-white/70 text-sm mb-1">{isIncome ? "Receita" : "Despesa"}</p>
+        <p className="text-white/70 text-sm mb-1">{editingId ? "Editar lançamento" : isIncome ? "Receita" : "Despesa"}</p>
         <input
           type="text" inputMode="numeric"
           value={form.amount}
@@ -472,7 +496,7 @@ ${transactions}
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto bg-white">
+      <form onSubmit={(e) => { e.preventDefault(); doSubmit(false); }} className="flex-1 overflow-y-auto bg-white">
         {[
           {
             label: "Descrição", required: true,
@@ -562,8 +586,19 @@ ${transactions}
             className="w-full py-4 rounded-2xl text-white font-bold text-base disabled:opacity-60 transition-opacity"
             style={{ background: accentColor }}
           >
-            {submitting ? "Salvando..." : `Salvar ${isIncome ? "Receita" : "Despesa"}`}
+            {submitting ? "Salvando..." : editingId ? "Salvar alterações" : `Salvar ${isIncome ? "Receita" : "Despesa"}`}
           </button>
+          {!editingId && (
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => doSubmit(true)}
+              className="w-full py-3 rounded-2xl font-semibold text-sm disabled:opacity-60 transition-opacity border"
+              style={{ borderColor: accentColor, color: accentColor, background: "transparent" }}
+            >
+              Salvar e adicionar outro
+            </button>
+          )}
         </div>
       </form>
     </div>
@@ -803,10 +838,16 @@ ${transactions}
                         {entry.direction === "INCOME" ? "" : "-"}{formatCurrency(entry.amount)}
                       </p>
                       {!entry.orderId && (
-                        <button onClick={() => handleDelete(entry.id)} disabled={deleting === entry.id}
-                          className="p-1 rounded-lg text-gray-300 hover:text-red-400 disabled:opacity-30 transition-colors">
-                          <Trash2 size={13} />
-                        </button>
+                        <>
+                          <button onClick={() => openEditForm(entry)}
+                            className="p-1 rounded-lg text-gray-300 hover:text-orange-400 transition-colors">
+                            <Pencil size={13} />
+                          </button>
+                          <button onClick={() => handleDelete(entry.id)} disabled={deleting === entry.id}
+                            className="p-1 rounded-lg text-gray-300 hover:text-red-400 disabled:opacity-30 transition-colors">
+                            <Trash2 size={13} />
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>

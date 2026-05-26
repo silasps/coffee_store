@@ -28,6 +28,7 @@ export default async function ConfiguracoesPage({ params }: Props) {
       brandJoinCtaLabel: true, brandJoinCtaUrl: true,
       brandAboutTitlePt: true, brandAboutTitleEn: true, brandAboutTitleEs: true,
       brandAboutVisible: true, brandCauseVisible: true, brandJoinVisible: true,
+      businessHours: true,
     },
   });
 

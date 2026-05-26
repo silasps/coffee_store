@@ -54,6 +54,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     brandJoinCtaLabel, brandJoinCtaUrl,
     brandAboutTitlePt, brandAboutTitleEn, brandAboutTitleEs,
     brandAboutVisible, brandCauseVisible, brandJoinVisible,
+    businessHours,
   } = body;
 
   if (!namePt?.trim()) {
@@ -113,6 +114,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       brandAboutVisible: brandAboutVisible ?? true,
       brandCauseVisible: brandCauseVisible ?? true,
       brandJoinVisible: brandJoinVisible ?? true,
+      businessHours: businessHours ?? undefined,
     },
     select: { id: true, slug: true, namePt: true },
   });
