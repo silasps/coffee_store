@@ -18,6 +18,7 @@ export type CartItem = {
 type CartStore = {
   storeSlug: string | null;
   items: CartItem[];
+  _hasHydrated: boolean;
 
   setStoreSlug: (slug: string) => void;
   addItem: (item: Omit<CartItem, "quantity" | "notes" | "modifiers"> & { quantity?: number }) => void;
@@ -25,6 +26,7 @@ type CartStore = {
   updateQuantity: (id: string, quantity: number) => void;
   updateNotes: (id: string, notes: string) => void;
   clearCart: () => void;
+  _setHasHydrated: (v: boolean) => void;
 
   total: () => number;
   itemCount: () => number;
@@ -35,8 +37,10 @@ export const useCartStore = create<CartStore>()(
     (set, get) => ({
       storeSlug: null,
       items: [],
+      _hasHydrated: false,
 
       setStoreSlug: (slug) => set({ storeSlug: slug }),
+      _setHasHydrated: (v) => set({ _hasHydrated: v }),
 
       addItem: (item) => {
         const items = get().items;
@@ -100,6 +104,9 @@ export const useCartStore = create<CartStore>()(
         storeSlug: state.storeSlug,
         items: state.items,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?._setHasHydrated(true);
+      },
       storage: {
         getItem: (name) => {
           try {

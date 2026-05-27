@@ -52,10 +52,12 @@ export function CheckoutClient({ store, locale }: Props) {
   const t = useTranslations("checkout");
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const items = useCartStore((s) => s.items);
   const total = useCartStore((s) => s.total());
   const clearCart = useCartStore((s) => s.clearCart);
+  const hasHydrated = useCartStore((s) => s._hasHydrated);
 
   const {
     register,
@@ -71,15 +73,16 @@ export function CheckoutClient({ store, locale }: Props) {
   const selectedPayment = watch("paymentMethod");
 
   useEffect(() => {
-    if (items.length === 0 && !submitting) {
+    if (hasHydrated && items.length === 0 && !submitting) {
       router.replace(`/${locale}/${store.slug}`);
     }
-  }, [items.length, submitting, locale, store.slug, router]);
+  }, [hasHydrated, items.length, submitting, locale, store.slug, router]);
 
-  if (items.length === 0) return null;
+  if (!hasHydrated || items.length === 0) return null;
 
   async function onSubmit(data: FormData) {
     setSubmitting(true);
+    setSubmitError(null);
     try {
       const res = await fetch("/api/orders", {
         method: "POST",
@@ -103,7 +106,15 @@ export function CheckoutClient({ store, locale }: Props) {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to place order");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const msg = body?.error === "Loja fechada"
+          ? "A loja está fechada no momento."
+          : "Não foi possível realizar o pedido. Tente novamente.";
+        setSubmitError(msg);
+        setSubmitting(false);
+        return;
+      }
 
       const { orderId, pixQrCode, pixCopyPaste, paymentLink, displayCode } = await res.json();
       // Save active order so the menu can show a floating status badge
@@ -114,6 +125,7 @@ export function CheckoutClient({ store, locale }: Props) {
       clearCart();
       router.push(`/${locale}/${store.slug}/pedido/${orderId}?pix=${encodeURIComponent(pixQrCode ?? "")}&copy=${encodeURIComponent(pixCopyPaste ?? "")}&link=${encodeURIComponent(paymentLink ?? "")}`);
     } catch {
+      setSubmitError("Erro de conexão. Verifique sua internet e tente novamente.");
       setSubmitting(false);
     }
   }
@@ -260,6 +272,9 @@ export function CheckoutClient({ store, locale }: Props) {
           </div>
 
           {/* Submit */}
+          {submitError && (
+            <p className="text-red-500 text-sm text-center font-medium">{submitError}</p>
+          )}
           <button
             type="submit"
             disabled={submitting}
